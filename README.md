@@ -38,12 +38,12 @@ For example:
 
 should produce
 ```
-
+5317689825764910829
 ```
 
 To look this position up in the opening book, call:
 ```
-./lookup 16918413183799691332 126 0 0 0 0 0 0 126 0 129 129 129 129 129 129 0 128
+./lookup 5317689825764910829 126 0 0 0 0 0 0 126 0 129 129 129 129 129 129 0 128
 ```
 
 which produces, for example,
