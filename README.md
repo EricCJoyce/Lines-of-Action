@@ -1,4 +1,4 @@
-# Lines-of-Action
+# [Lines-of-Action](https://www.ericjoycefilm.com/wastesoftime/boardgames/linesofaction/index.php?lang=en)
 Notes on the creation of Lines of Action
 
 ## Docker container to compile C to WebAssembly
