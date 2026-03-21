@@ -20,7 +20,135 @@ unsigned long long hash(unsigned char*);
 /**************************************************************************************************
  Globals  */
 
-unsigned long long zobristHashTable[ZHASH_TABLE_SIZE] = {};
+unsigned long long zobristHashTable[ZHASH_TABLE_SIZE] = {9500759203796429788,
+                                                         4154365239631495907,
+                                                         12688520109339515784,
+                                                         16893211038418910670,
+                                                         6420718117194460949,
+                                                         16595978588795247733,
+                                                         3317427000997902075,
+                                                         7362930709635794863,
+                                                         7288575462717949929,
+                                                         2614879786466853748,
+                                                         10164535129428688904,
+                                                         9782012396571374457,
+                                                         17683759455011745502,
+                                                         5462470244575826990,
+                                                         1051665848328212965,
+                                                         1465931067517372127,
+                                                         17502971541408120844,
+                                                         3066682713087288780,
+                                                         2752470804623291747,
+                                                         5577283115235010894,
+                                                         2195853823251086899,
+                                                         16766893866021572002,
+                                                         11363287743488126291,
+                                                         15808942041810269945,
+                                                         14089769851762771509,
+                                                         13534348864413660661,
+                                                         7931272528867554297,
+                                                         4447952685610419913,
+                                                         8167449420505717382,
+                                                         11809927153903624896,
+                                                         11176812962828210729,
+                                                         15435576893913424944,
+                                                         8638461248507401013,
+                                                         654360054205198974,
+                                                         16209293881535982088,
+                                                         8350601382466569943,
+                                                         7590915437158508145,
+                                                         14771382118409989582,
+                                                         653957092256593697,
+                                                         15358041486603806508,
+                                                         16431166608660214587,
+                                                         7795933464400771136,
+                                                         6822618911154772624,
+                                                         14177584353060380443,
+                                                         2895933428323860886,
+                                                         5639548783580164489,
+                                                         18107755783765325338,
+                                                         11226516028090341288,
+                                                         1397675133524949423,
+                                                         1742619873391854834,
+                                                         11417010547720907471,
+                                                         9008165717490280212,
+                                                         8669820191875194465,
+                                                         10296593485998936054,
+                                                         9556873592873289170,
+                                                         2065807018154598320,
+                                                         2396979970551464419,
+                                                         186533977114712694,
+                                                         1520267587288265780,
+                                                         13476443125425401425,
+                                                         1790106066790714214,
+                                                         7202130340806653595,
+                                                         14254267409284286552,
+                                                         17343415699215913755,
+                                                         15918814000082564589,
+                                                         7568826277146693267,
+                                                         3774983916964458183,
+                                                         7573925341085966607,
+                                                         16280292291024081874,
+                                                         6052855478412279905,
+                                                         3082201934250669636,
+                                                         7239401664592784283,
+                                                         12951231672245546457,
+                                                         3092050011471090356,
+                                                         10654668872434009507,
+                                                         14807764893015719543,
+                                                         9267884448951322339,
+                                                         2312857981434153795,
+                                                         8922187305968086616,
+                                                         5068072243611780220,
+                                                         4236746067783801539,
+                                                         3679904463507003848,
+                                                         16090086493430368676,
+                                                         8444897356933480656,
+                                                         15207330459240244788,
+                                                         2124495902307904775,
+                                                         17648872624389137852,
+                                                         12311603437661657781,
+                                                         9905202663138526626,
+                                                         5841017469308304711,
+                                                         8586715747890131342,
+                                                         17611179387321629904,
+                                                         12395776424061634904,
+                                                         4969560370341322971,
+                                                         17317293281349471618,
+                                                         439541989797475588,
+                                                         4005383220257460137,
+                                                         13420623922975632821,
+                                                         9368335157245161218,
+                                                         18376606729742405690,
+                                                         18217785949733364311,
+                                                         7694383692061074874,
+                                                         8893231758809117124,
+                                                         7492357169182626063,
+                                                         12409191057861048011,
+                                                         4168312367669693096,
+                                                         17208774880596631258,
+                                                         17051160876338778714,
+                                                         13767870104027056821,
+                                                         15731761261813831713,
+                                                         17277616871348532278,
+                                                         1256752144541853136,
+                                                         3337144303018480898,
+                                                         17965596570914119384,
+                                                         7314564885792292230,
+                                                         9236273536426053583,
+                                                         3338678210317702840,
+                                                         4977359291082632673,
+                                                         8208516568534213853,
+                                                         9277816768526398383,
+                                                         15964975950930358263,
+                                                         13106256761028945455,
+                                                         15554086960536902855,
+                                                         4234220237900041579,
+                                                         13287087292134929845,
+                                                         17649109728229095613,
+                                                         10726786415839204600,
+                                                         7665448453848742761,
+                                                         4682968118155421013};
 
 /**************************************************************************************************
  Main  */
@@ -47,154 +175,46 @@ int main(int argc, char* argv[])
 unsigned long long hash(unsigned char* hashInputBuffer)
   {
     unsigned long long h = 0L;
-    unsigned int index;
-    unsigned int i;
     unsigned long long ull8;                                        //  The unsigned long long we will actually use to hash.
 
-    if((hashInputBuffer[0] & 128) == 128)                           //  Hash the side to move.
+    unsigned char x, y;
+    unsigned char i = 0;
+    unsigned char ch, mask;
+
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Decode black.
       {
-        ull8 = zobristHashTable[W_TO_MOVE];
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 64) == 64)                             //  Hash white's castling data.
-      {
-        ull8 = zobristHashTable[W_KINGSIDE_CASTLE];
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 32) == 32)
-      {
-        ull8 = zobristHashTable[W_QUEENSIDE_CASTLE];
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 16) == 16)
-      {
-        ull8 = zobristHashTable[W_CASTLED];
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 8) == 8)                               //  Hash black's castling data.
-      {
-        ull8 = zobristHashTable[B_KINGSIDE_CASTLE];
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 4) == 4)
-      {
-        ull8 = zobristHashTable[B_QUEENSIDE_CASTLE];
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 2) == 2)
-      {
-        ull8 = zobristHashTable[B_CASTLED];
-        h ^= ull8;
+        ch = hashInputBuffer[i++];
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if((ch & mask) == mask)
+              {
+                ull8 = zobristHashTable[ B_A1 + (y * 8 + x) ];
+                h ^= ull8;
+              }
+            mask >>= 1;
+          }
       }
 
-    if((hashInputBuffer[1] & 128) == 128)                           //  Hash whether a pawn's doulbe move previously occurred in column A.
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Decode white.
       {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_A];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 64) == 64)                        //  Hash whether a pawn's doulbe move previously occurred in column B.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_B];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 32) == 32)                        //  Hash whether a pawn's doulbe move previously occurred in column C.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_C];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 16) == 16)                        //  Hash whether a pawn's doulbe move previously occurred in column D.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_D];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 8) == 8)                          //  Hash whether a pawn's doulbe move previously occurred in column E.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_E];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 4) == 4)                          //  Hash whether a pawn's doulbe move previously occurred in column F.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_F];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 2) == 2)                          //  Hash whether a pawn's doulbe move previously occurred in column G.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_G];
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 1) == 1)                          //  Hash whether a pawn's doulbe move previously occurred in column H.
-      {
-        ull8 = zobristHashTable[PREV_DOUBLE_COL_H];
-        h ^= ull8;
+        ch = hashInputBuffer[i++];
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if((ch & mask) == mask)
+              {
+                ull8 = zobristHashTable[ W_A1 + (y * 8 + x) ];
+                h ^= ull8;
+              }
+            mask >>= 1;
+          }
       }
 
-    i = 2;
-    for(index = 0; index < _NONE; index++)
+    if((hashInputBuffer[i] & 128) == 128)                           //  Hash the side to move.
       {
-                                                                    //  There can be no pawns on row 1 or row 8.
-        if(hashInputBuffer[i] == _WHITE_PAWN && index >= 8 && index < 56)
-          {
-            ull8 = zobristHashTable[(WP_A2 + index - 8)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_KNIGHT)
-          {
-            ull8 = zobristHashTable[(WN_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_BISHOP)
-          {
-            ull8 = zobristHashTable[(WB_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_ROOK)
-          {
-            ull8 = zobristHashTable[(WR_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_QUEEN)
-          {
-            ull8 = zobristHashTable[(WQ_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_KING)
-          {
-            ull8 = zobristHashTable[(WK_A1 + index)];
-            h ^= ull8;
-          }
-                                                                    //  There can be no pawns on row 1 or row 8.
-        else if(hashInputBuffer[i] == _BLACK_PAWN && index >= 8 && index < 56)
-          {
-            ull8 = zobristHashTable[(BP_A2 + index - 8)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_KNIGHT)
-          {
-            ull8 = zobristHashTable[(BN_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_BISHOP)
-          {
-            ull8 = zobristHashTable[(BB_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_ROOK)
-          {
-            ull8 = zobristHashTable[(BR_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_QUEEN)
-          {
-            ull8 = zobristHashTable[(BQ_A1 + index)];
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_KING)
-          {
-            ull8 = zobristHashTable[(BK_A1 + index)];
-            h ^= ull8;
-          }
-
-        i++;
+        ull8 = zobristHashBuffer[ B_TO_MOVE ];
+        h ^= ull8;
       }
 
     return h;
