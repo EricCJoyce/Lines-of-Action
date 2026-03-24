@@ -3,7 +3,7 @@
 
 #include "gamestate.h"
                                                                     //  Weights determined by TDLeaf(lambda).
-#define WEIGHT_CONCENTRATION              1.0
+#define WEIGHT_CONCENTRATION              1.2
 #define WEIGHT_CENTRALIZATION             1.0
 #define WEIGHT_CENTER_OF_MASS             1.0
 #define WEIGHT_QUADS                      1.0
@@ -12,7 +12,7 @@
 #define WEIGHT_WALLS_INNER4               1.0
 #define WEIGHT_WALLS_INNER12              1.0
 #define WEIGHT_CONNECTEDNESS              6.0
-#define WEIGHT_UNIFORMITY                 1.0
+#define WEIGHT_UNIFORMITY                 8.0
 
 #define CENTRALIZATION_WEIGHT_0          -8.0                       /* Penalty per piece occupying the corners */
 #define CENTRALIZATION_WEIGHT_1          -2.5                       /* Penalty per piece occupying the edges */
@@ -37,12 +37,14 @@
  Prototypes  */
 
 unsigned int getMovesForTeam(bool, GameState*, Move*);
-float score(GameState*);
+unsigned char attackersOfSquare(unsigned char, char, GameState*, Move*);
 
+float score(GameState*);
 float concentration(unsigned char*, unsigned char);
+unsigned char distance(unsigned char, unsigned char);
 unsigned char centerOfMass(unsigned char*, unsigned char);
 unsigned char orbit(unsigned char);
-unsigned char zones(unsigned char**);
+unsigned char zones(unsigned char*);
 float evaluateCenterOfMass(unsigned char);
 float centralization(unsigned char*, unsigned char);
 float quads(unsigned char*, unsigned char, unsigned char, GameState*);
@@ -86,6 +88,28 @@ unsigned int getMovesForTeam(bool black, GameState* gs, Move* buffer)
       }
 
     return movesCtr;
+  }
+
+/* Build an array of Move structs for all pieces belonging to "team" that can attack "target". */
+unsigned char attackersOfSquare(unsigned char target, char team, GameState* gs, Move* buffer)
+  {
+    unsigned int movesLen = 0;
+    Move moves[_MAX_MOVES];                                         //  Assumes generous upper bound of moves.
+    unsigned char len = 0;
+    unsigned int i;
+
+    movesLen = getMovesForTeam((team == 'b'), gs, moves);
+    for(i = 0; i < movesLen; i++)
+      {
+        if(moves[i].to == target)
+          {
+            buffer[len].from = moves[i].from;
+            buffer[len].to = moves[i].to;
+            len++;
+          }
+      }
+
+    return len;
   }
 
 /**************************************************************************************************
@@ -196,6 +220,27 @@ float concentration(unsigned char* team, unsigned char len)
     return h;
   }
 
+unsigned char distance(unsigned char a, unsigned char b)
+  {
+    signed char ra = row(a);
+    signed char ca = col(a);
+
+    signed char rb = row(b);
+    signed char cb = col(b);
+
+    unsigned char difrow;
+    unsigned char difcol;
+
+    if(ra < _NONE && ca < _NONE && rb < _NONE && cb < _NONE)
+      {
+        difrow = abs(ra - rb);
+        difcol = abs(ca - cb);
+        return (difrow > difcol) ? difrow : difcol;
+      }
+
+    return 0;
+  }
+
 /**************************************************************************************************
  Center of Mass
  Determine the index of a team's center of mass  */
@@ -253,7 +298,7 @@ unsigned char zones(unsigned char* map)
 float evaluateCenterOfMass(unsigned char CoM)
   {
     float h = 0.0;
-    signed char weights[6];
+    float weights[6];
 
     weights[0] = CENTRALIZATION_WEIGHT_0;                           //  From farthest to most central: 0 - 5
     weights[1] = CENTRALIZATION_WEIGHT_1;
@@ -262,7 +307,7 @@ float evaluateCenterOfMass(unsigned char CoM)
     weights[4] = CENTRALIZATION_WEIGHT_4;
     weights[5] = CENTRALIZATION_WEIGHT_5;
 
-    h += (float)weights[ orbit(CoM) ];
+    h += weights[ orbit(CoM) ];
 
     return h;
   }
@@ -422,7 +467,7 @@ unsigned char wallsCOM(unsigned char* negTeam, unsigned char negTeamLen, unsigne
 
 /* Walls to center of mass
    Walls to board center (central 4 squares)  */
-unsigned char wallsCenter4(unsigned char* negTeam, unsigned char negTeamLen, GameStae* gs)
+unsigned char wallsCenter4(unsigned char* negTeam, unsigned char negTeamLen, GameState* gs)
   {
     unsigned char h = 0;
     unsigned char dstList[4];

@@ -1,18 +1,13 @@
 /*
 
-sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src emscripten-c emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getInputGameStateBuffer','_getInputMoveBuffer','_getOutputGameStateBuffer','_getOutputMovesBuffer','_sideToMove_eval','_isTerminal_eval','_isSideToMoveInCheck_eval','_nonPawnMaterial_eval','_makeMove_eval','_makeNullMove_eval','_evaluate_eval','_getMoves_eval']" -Wl,--no-entry "philadelphia.c" -o "eval.wasm"
+sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src emscripten-c emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getInputGameStateBuffer','_getInputMoveBuffer','_getOutputGameStateBuffer','_getOutputMovesBuffer','_sideToMove_eval','_isTerminal_eval','_makeMove_eval','_makeNullMove_eval','_evaluate_eval','_getMoves_eval']" -Wl,--no-entry "gropius.c" -o "eval.wasm"
 
 */
 
 #include "gamestate.h"
-#include "philadelphia.h"
+#include "gropius.h"
 
 #define SEE_SCORE_PAWN               10                             /* Static Exchange Evaluation, rough pawn score. */
-#define SEE_SCORE_KNIGHT             30                             /* Static Exchange Evaluation, rough knight score. */
-#define SEE_SCORE_BISHOP             33                             /* Static Exchange Evaluation, rough bishop score. */
-#define SEE_SCORE_ROOK               50                             /* Static Exchange Evaluation, rough rook score. */
-#define SEE_SCORE_QUEEN              90                             /* Static Exchange Evaluation, rough queen score. */
-#define SEE_SCORE_KING             1000                             /* Static Exchange Evaluation, rough king score. */
 #define MOVE_SORTING_PROMO_BONUS    800                             /* Static Exchange Evaluation, rough promotion bonus. */
 #define MOVE_SORTING_CHECK_BONUS     50                             /* Static Exchange Evaluation, rough putting-opponent-in-check bonus. */
 
@@ -35,15 +30,11 @@ void deserializeMove(Move*);
 
 unsigned char sideToMove_eval(void);
 bool isTerminal_eval(void);
-bool isSideToMoveInCheck_eval(void);
-unsigned char nonPawnMaterial_eval(void);
 void makeMove_eval(void);
 void makeNullMove_eval(void);
-//float evaluate_eval(bool);
 float evaluate_eval(void);
 unsigned int getMoves_eval(void);
 signed int SEE(Move*, GameState*);
-signed int SEE_lookup(char);
 
 /**************************************************************************************************
  Globals  */
@@ -91,82 +82,39 @@ unsigned char* getOutputMovesBuffer(void)
 /* Write the given game state to the given buffer. */
 void serializeGameStateToBuffer(GameState* gs, unsigned char* buffer)
   {
-    unsigned char i = 0, j;
-    unsigned char ch;
+    unsigned char x, y;
+    unsigned char i = 0;
+    unsigned char ch, mask;
 
-    //////////////////////////////////////////////////////////////////  (1 byte) Encode side to move and castling data.
-    ch = 0;
-    if(gs->whiteToMove)                                             //  Set bit: white to move.
-      ch |= 128;
-    if(gs->whiteKingsidePrivilege)                                  //  Set bit: white's kingside castling privilege.
-      ch |= 64;
-    if(gs->whiteQueensidePrivilege)                                 //  Set bit: white's queenside castling privilege.
-      ch |= 32;
-    if(gs->whiteCastled)                                            //  Set bit: white has castled.
-      ch |= 16;
-    if(gs->blackKingsidePrivilege)                                  //  Set bit: black's kingside castling privilege.
-      ch |= 8;
-    if(gs->blackQueensidePrivilege)                                 //  Set bit: black's queenside castling privilege.
-      ch |= 4;
-    if(gs->blackCastled)                                            //  Set bit: black has castled.
-      ch |= 2;
-
-    buffer[i++] = ch;                                               //  Write byte.
-
-    //////////////////////////////////////////////////////////////////  (1 byte) Encode previous pawn double move data.
-    ch = 0;
-    ch |= (gs->previousDoublePawnMove & 128);                       //  Set bit: previous pawn double-move occurred on column A.
-    ch |= (gs->previousDoublePawnMove & 64);                        //  Set bit: previous pawn double-move occurred on column B.
-    ch |= (gs->previousDoublePawnMove & 32);                        //  Set bit: previous pawn double-move occurred on column C.
-    ch |= (gs->previousDoublePawnMove & 16);                        //  Set bit: previous pawn double-move occurred on column D.
-    ch |= (gs->previousDoublePawnMove & 8);                         //  Set bit: previous pawn double-move occurred on column E.
-    ch |= (gs->previousDoublePawnMove & 4);                         //  Set bit: previous pawn double-move occurred on column F.
-    ch |= (gs->previousDoublePawnMove & 2);                         //  Set bit: previous pawn double-move occurred on column G.
-    ch |= (gs->previousDoublePawnMove & 1);                         //  Set bit: previous pawn double-move occurred on column H.
-    buffer[i++] = ch;                                               //  Write byte.
-
-    //////////////////////////////////////////////////////////////////  (64 bytes) Encode the board.
-    for(j = 0; j < _NONE; j++)
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Encode black.
       {
         ch = 0;
-        if(isWhite(j, gs))
+        mask = 128;
+        for(x = 0; x < 8; x++)
           {
-            if(isPawn(j, gs))
-              ch = _WHITE_PAWN;
-            else if(isKnight(j, gs))
-              ch = _WHITE_KNIGHT;
-            else if(isBishop(j, gs))
-              ch = _WHITE_BISHOP;
-            else if(isRook(j, gs))
-              ch = _WHITE_ROOK;
-            else if(isQueen(j, gs))
-              ch = _WHITE_QUEEN;
-            else
-              ch = _WHITE_KING;
+            if(isBlack(y * 8 + x, gs))
+              ch |= mask;
+            mask >>= 1;
           }
-        else if(isBlack(j, gs))
-          {
-            if(isPawn(j, gs))
-              ch = _BLACK_PAWN;
-            else if(isKnight(j, gs))
-              ch = _BLACK_KNIGHT;
-            else if(isBishop(j, gs))
-              ch = _BLACK_BISHOP;
-            else if(isRook(j, gs))
-              ch = _BLACK_ROOK;
-            else if(isQueen(j, gs))
-              ch = _BLACK_QUEEN;
-            else
-              ch = _BLACK_KING;
-          }
-
-        buffer[i++] = ch;                                           //  Write byte.
+        buffer[i++] = ch;
       }
 
-    //////////////////////////////////////////////////////////////////  (1 byte) Encode the move counter.
-    buffer[i++] = gs->moveCtr;
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Encode white.
+      {
+        ch = 0;
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if(isWhite(y * 8 + x, gs))
+              ch |= mask;
+            mask >>= 1;
+          }
+        buffer[i++] = ch;
+      }
 
-    return;                                                         //  TOTAL: 67 bytes.
+    buffer[i] = gs->blackToMove ? 128 : 0;                          //  (1 byte) Encode side to move.
+
+    return;                                                         //  TOTAL: 17 bytes.
   }
 
 /* Write the given move to the given buffer. */
@@ -176,7 +124,6 @@ void serializeMoveToBuffer(Move* move, unsigned char* buffer)
 
     buffer[i++] = move->from;
     buffer[i++] = move->to;
-    buffer[i++] = move->promo;
 
     return;
   }
@@ -184,80 +131,42 @@ void serializeMoveToBuffer(Move* move, unsigned char* buffer)
 /* Recover a GameState from the unsigned-char buffer "inputGameStateBuffer". */
 void deserializeGameState(GameState* gs)
   {
-    unsigned char i, j;
+    unsigned char x, y;
+    unsigned char i;
+    unsigned char ch, mask;
 
     for(i = 0; i < _NONE; i++)                                      //  Fill-in/blank-out.
       gs->board[i] = _EMPTY;
-    gs->previousDoublePawnMove = 0;
 
-    //////////////////////////////////////////////////////////////////  (1 byte) Decode side to move and castling data.
-    gs->whiteToMove = ((inputGameStateBuffer[0] & 128) == 128);     //  Recover side to move.
-                                                                    //  Recover white's castling data.
-    gs->whiteKingsidePrivilege = ((inputGameStateBuffer[0] & 64) == 64);
-    gs->whiteQueensidePrivilege = ((inputGameStateBuffer[0] & 32) == 32);
-    gs->whiteCastled = ((inputGameStateBuffer[0] & 16) == 16);
-                                                                    //  Recover black's castling data.
-    gs->blackKingsidePrivilege = ((inputGameStateBuffer[0] & 8) == 8);
-    gs->blackQueensidePrivilege = ((inputGameStateBuffer[0] & 4) == 4);
-    gs->blackCastled = ((inputGameStateBuffer[0] & 2) == 2);
+    i = 0;
 
-    //////////////////////////////////////////////////////////////////  (1 byte) Decode en-passant data.
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 128);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 64);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 32);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 16);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 8);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 4);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 2);
-    gs->previousDoublePawnMove |= (inputGameStateBuffer[1] & 1);
-
-    if(!(gs->previousDoublePawnMove == 128 ||
-         gs->previousDoublePawnMove == 64  ||
-         gs->previousDoublePawnMove == 32  ||
-         gs->previousDoublePawnMove == 16  ||
-         gs->previousDoublePawnMove == 8   ||
-         gs->previousDoublePawnMove == 4   ||
-         gs->previousDoublePawnMove == 2   ||
-         gs->previousDoublePawnMove == 1   ||
-         gs->previousDoublePawnMove == 0   ))
-      gs->previousDoublePawnMove = 0;                               //  "There can be only one!"
-
-    //////////////////////////////////////////////////////////////////  (64 bytes) Decode the board.
-    i = 2;
-    for(j = 0; j < _NONE; j++)
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Decode black.
       {
-        if(inputGameStateBuffer[i] == _WHITE_PAWN)
-          gs->board[j] = _WHITE_PAWN;
-        else if(inputGameStateBuffer[i] == _WHITE_KNIGHT)
-          gs->board[j] = _WHITE_KNIGHT;
-        else if(inputGameStateBuffer[i] == _WHITE_BISHOP)
-          gs->board[j] = _WHITE_BISHOP;
-        else if(inputGameStateBuffer[i] == _WHITE_ROOK)
-          gs->board[j] = _WHITE_ROOK;
-        else if(inputGameStateBuffer[i] == _WHITE_QUEEN)
-          gs->board[j] = _WHITE_QUEEN;
-        else if(inputGameStateBuffer[i] == _WHITE_KING)
-          gs->board[j] = _WHITE_KING;
-        else if(inputGameStateBuffer[i] == _BLACK_PAWN)
-          gs->board[j] = _BLACK_PAWN;
-        else if(inputGameStateBuffer[i] == _BLACK_KNIGHT)
-          gs->board[j] = _BLACK_KNIGHT;
-        else if(inputGameStateBuffer[i] == _BLACK_BISHOP)
-          gs->board[j] = _BLACK_BISHOP;
-        else if(inputGameStateBuffer[i] == _BLACK_ROOK)
-          gs->board[j] = _BLACK_ROOK;
-        else if(inputGameStateBuffer[i] == _BLACK_QUEEN)
-          gs->board[j] = _BLACK_QUEEN;
-        else if(inputGameStateBuffer[i] == _BLACK_KING)
-          gs->board[j] = _BLACK_KING;
-
-        i++;
+        ch = inputGameStateBuffer[i++];
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if((ch & mask) == mask)
+              gs->board[y * 8 + x] = _BLACK_PAWN;
+            mask >>= 1;
+          }
       }
 
-    //////////////////////////////////////////////////////////////////  (1 byte) Decode the move counter.
-    gs->moveCtr = inputGameStateBuffer[i++];
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Decode white.
+      {
+        ch = inputGameStateBuffer[i++];
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if((ch & mask) == mask)
+              gs->board[y * 8 + x] = _WHITE_PAWN;
+            mask >>= 1;
+          }
+      }
 
-    return;                                                         //  TOTAL: 67 bytes.
+    gs->blackToMove = ((inputGameStateBuffer[i] & 128) == 128);     //  (1 byte) Decode side to move.
+
+    return;                                                         //  TOTAL: 17 bytes.
   }
 
 /* Recover a Move from the unsigned-char buffer "inputMoveBuffer". */
@@ -265,17 +174,16 @@ void deserializeMove(Move* move)
   {
     move->from = inputMoveBuffer[0];
     move->to = inputMoveBuffer[1];
-    move->promo = inputMoveBuffer[2];
     return;
   }
 
 /* Answer the Negamax Module's query, "Which side is to move in the GameState in the query buffer?"
-   Return an unsigned char in {_WHITE_TO_MOVE, _BLACK_TO_MOVE}. */
+   Return an unsigned char in {_BLACK_TO_MOVE, _WHITE_TO_MOVE}. */
 unsigned char sideToMove_eval(void)
   {
     GameState gs;
     deserializeGameState(&gs);                                      //  Recover GameState from buffer.
-    return gs.whiteToMove ? _WHITE_TO_MOVE : _BLACK_TO_MOVE;
+    return gs.blackToMove ? _BLACK_TO_MOVE : _WHITE_TO_MOVE;
   }
 
 /* Answer the Negamax Module's query, "Is the GameState in the query buffer terminal?" */
@@ -284,78 +192,6 @@ bool isTerminal_eval(void)
     GameState gs;
     deserializeGameState(&gs);                                      //  Recover GameState from buffer.
     return terminal(&gs);
-  }
-
-/* Answer the Negamax Module's query, "Is the side to move in the GameState in the query buffer in check?" */
-bool isSideToMoveInCheck_eval(void)
-  {
-    GameState gs;
-    unsigned char i;
-
-    deserializeGameState(&gs);                                      //  Recover GameState from buffer.
-
-    if(gs.whiteToMove)                                              //  White is to move; is white in check?
-      {
-        i = 0;
-        while(i < _NONE && gs.board[i] != _WHITE_KING)
-          i++;
-        return inCheckBy(i, 'b', &gs);
-      }
-                                                                    //  Black is to move; is black in check?
-    i = 0;
-    while(i < _NONE && gs.board[i] != _BLACK_KING)
-      i++;
-    return inCheckBy(i, 'w', &gs);
-  }
-
-/* Answer the Negamax Module's query, "How much non-pawn material does the side to move have in the GameState in the query buffer?" */
-unsigned char nonPawnMaterial_eval(void)
-  {
-    GameState gs;
-    unsigned char knights = 0;
-    unsigned char bishops = 0;
-    unsigned char rooks = 0;
-    unsigned char queens = 0;
-    unsigned char i;
-
-    deserializeGameState(&gs);                                      //  Recover GameState from buffer.
-
-    if(gs.whiteToMove)
-      {
-        for(i = 0; i < _NONE; i++)
-          {
-            if(isWhite(i, &gs))
-              {
-                if(isKnight(i, &gs))
-                  knights++;
-                else if(isBishop(i, &gs))
-                  bishops++;
-                else if(isRook(i, &gs))
-                  rooks++;
-                else if(isQueen(i, &gs))
-                  queens++;
-              }
-          }
-      }
-    else
-      {
-        for(i = 0; i < _NONE; i++)
-          {
-            if(isBlack(i, &gs))
-              {
-                if(isKnight(i, &gs))
-                  knights++;
-                else if(isBishop(i, &gs))
-                  bishops++;
-                else if(isRook(i, &gs))
-                  rooks++;
-                else if(isQueen(i, &gs))
-                  queens++;
-              }
-          }
-      }
-
-    return 3 * (knights + bishops) + 5 * rooks + 9 * queens;
   }
 
 /* Answer the Negamax Module's query, "What GameState results from making the move in the input-move buffer in the game state in the input-gamestate buffer?"
@@ -410,35 +246,69 @@ unsigned int getMoves_eval()
     GameState gs, child;
     Move moves[_MAX_MOVES];
     unsigned int movesLen = 0;
-    signed int score, scores[_MAX_MOVES];                           //  Use fast, cheap heuristics like SEE.
+
+    unsigned char blackMaterial_Prior[_TOTAL_PIECES];               //  Indices of all Black material, BEFORE.
+    unsigned char blackMaterialLength_Prior = 0;
+    unsigned char whiteMaterial_Prior[_TOTAL_PIECES];               //  Indices of all White material, BEFORE.
+    unsigned char whiteMaterialLength_Prior = 0;
+
+    unsigned char blackMaterial_Posterior[_TOTAL_PIECES];           //  Indices of all Black material, AFTER.
+    unsigned char blackMaterialLength_Posterior = 0;
+    unsigned char whiteMaterial_Posterior[_TOTAL_PIECES];           //  Indices of all White material, AFTER.
+    unsigned char whiteMaterialLength_Posterior = 0;
+
+    float concentration_Prior, concentration_Posterior;
+    float connected_Prior, connected_Posterior;
+
+    signed int score_j, scores[_MAX_MOVES];                         //  Use fast, cheap heuristics.
 
     unsigned char buffer4[4];                                       //  Byte array to hold leading int = number of moves in output buffer.
     unsigned int i, j, k;
-    unsigned char whiteKingIndex, blackKingIndex;
+
+    blackMaterialLength_Prior = getBlack(&gs, blackMaterial_Prior); //  unsigned chars
+    whiteMaterialLength_Prior = getWhite(&gs, whiteMaterial_Prior); //  unsigned chars
 
     deserializeGameState(&gs);                                      //  Recover GameState from buffer.
     movesLen = getMoves(&gs, moves);                                //  Get moves.
+
+    if(gs.blackToMove)                                              //  We will compare these before and after.
+      {
+        concentration_Prior = concentration(blackMaterial_Prior, blackMaterialLength_Prior) - concentration(whiteMaterial_Prior, whiteMaterialLength_Prior);
+        connected_Prior = connectedness(blackMaterial_Prior, blackMaterialLength_Prior, &gs) - connectedness(whiteMaterial_Prior, whiteMaterialLength_Prior, &gs);
+      }
+    else
+      {
+        concentration_Prior = concentration(whiteMaterial_Prior, whiteMaterialLength_Prior) - concentration(blackMaterial_Prior, blackMaterialLength_Prior);
+        connected_Prior = connectedness(whiteMaterial_Prior, whiteMaterialLength_Prior, &gs) - connectedness(blackMaterial_Prior, blackMaterialLength_Prior, &gs);
+      }
 
     for(i = 0; i < movesLen; i++)                                   //  Compute a fast-n-cheap score to help the Negamax Module sort its nodes.
       {
         scores[i] = 0;                                              //  Initialize every move to zero.
 
         if(isCapture(moves + i, &gs))                               //  Move is a capture.
-          scores[i] += SEE(moves + i, &gs);                         //  Static Exchange Evaluation can reveal good, equal, or bad captures.
-        if((moves + i)->promo != _NO_PROMO)                         //  Move is a promotion.
-          scores[i] += MOVE_SORTING_PROMO_BONUS;
+          scores[i] += SEE(moves + i, &gs) * 20;                    //  Static Exchange Evaluation can reveal good, equal, or bad captures.
 
         copyGameState(&gs, &child);                                 //  Clone the source state.
         makeMove(moves + i, &child);                                //  Apply the candidate move.
-        whiteKingIndex = 0;                                         //  Locate the white king.
-        while(whiteKingIndex < _NONE && child.board[whiteKingIndex] != _WHITE_KING)
-          whiteKingIndex++;
-        blackKingIndex = 0;                                         //  Locate the black king.
-        while(blackKingIndex < _NONE && child.board[blackKingIndex] != _BLACK_KING)
-          blackKingIndex++;
-                                                                    //  Move puts opponent in check?
-        if( (!child.whiteToMove && inCheckBy(blackKingIndex, 'w', &child)) || (child.whiteToMove && inCheckBy(whiteKingIndex, 'b', &child)) )
-          scores[i] += MOVE_SORTING_CHECK_BONUS;
+        if(terminal(&child))
+          scores[i] += 10000;
+
+        blackMaterialLength_Posterior = getBlack(&child, blackMaterial_Posterior);
+        whiteMaterialLength_Posterior = getWhite(&child, whiteMaterial_Posterior);
+
+        if(gs.blackToMove)                                          //  Compare before and after.
+          {
+            concentration_Posterior = concentration(blackMaterial_Posterior, blackMaterialLength_Posterior) - concentration(whiteMaterial_Posterior, whiteMaterialLength_Posterior);
+            connected_Posterior = connectedness(blackMaterial_Posterior, blackMaterialLength_Posterior, &child) - connectedness(whiteMaterial_Posterior, whiteMaterialLength_Posterior, &child);
+          }
+        else
+          {
+            concentration_Posterior = concentration(whiteMaterial_Posterior, whiteMaterialLength_Posterior) - concentration(blackMaterial_Posterior, blackMaterialLength_Posterior);
+            connected_Posterior = connectedness(whiteMaterial_Posterior, whiteMaterialLength_Posterior, &child) - connectedness(blackMaterial_Posterior, blackMaterialLength_Posterior, &child);
+          }
+        scores[i] += (signed int)round((concentration_Posterior - concentration_Prior) * 80.0);
+        scores[i] += (signed int)round((connected_Posterior - connected_Prior) * 300.0);
       }
 
     i = 0;                                                          //  Point to head of output buffer.
@@ -446,14 +316,13 @@ unsigned int getMoves_eval()
       {
         outputMovesBuffer[i++] = moves[j].from;                     //  Copy move to global byte array.
         outputMovesBuffer[i++] = moves[j].to;
-        outputMovesBuffer[i++] = moves[j].promo;
 
-        score = scores[j];
-        memcpy(buffer4, (unsigned char*)(&score), 4);               //  Force the SIGNED integer into a 4-byte temp buffer.
+        score_j = scores[j];
+        memcpy(buffer4, (unsigned char*)(&score_j), 4);             //  Force the SIGNED integer into a 4-byte temp buffer.
         for(k = 0; k < 4; k++)                                      //  Copy local SIGNED score to global output byte array.
           outputMovesBuffer[i++] = buffer4[k];
                                                                     //  0: quiet; 1: capture or promotion.
-        outputMovesBuffer[i++] = (moves[j].promo == _NO_PROMO || !isCapture(moves + j, &gs)) ? 0 : 1;
+        outputMovesBuffer[i++] = (!isCapture(moves + j, &gs)) ? 0 : 1;
       }
 
     return movesLen;
@@ -469,7 +338,7 @@ signed int SEE(Move* move, GameState* src)
     signed int capturedPieceVal;
     char capturingPiece;
     char team;
-    Move buffer[_NONE];
+    Move buffer[_TOTAL_PIECES];
     Move chosenMove;
     unsigned char len, i;
     signed int leastVal, val, victimVal, j;
@@ -478,11 +347,11 @@ signed int SEE(Move* move, GameState* src)
     copyGameState(src, &gs);
     target = move->to;                                              //  Identify the target.
 
-    capturedPieceVal = SEE_lookup(gs.board[move->to]);              //  Look up value of the captured piece.
+    capturedPieceVal = SEE_SCORE_PAWN;                              //  Value of the captured piece.
     capturingPiece = gs.board[move->from];
     gains[0] = capturedPieceVal;
     makeMove(move, &gs);                                            //  Apply the move to be evaluated.
-    team = gs.whiteToMove ? 'w' : 'b';
+    team = gs.blackToMove ? 'b' : 'w';
 
     while(true)                                                     //  Follow capture chain to the end.
       {
@@ -490,25 +359,24 @@ signed int SEE(Move* move, GameState* src)
         if(len == 0)                                                //  No further captures.
           break;
 
-        leastVal = SEE_SCORE_KING * 2;                              //  Find the least valuable captor.
+        leastVal = SEE_SCORE_PAWN;
         for(i = 0; i < len; i++)
           {
-            val = SEE_lookup(gs.board[ buffer[i].from ]);
+            val = SEE_SCORE_PAWN;
             if(val < leastVal)
               {
                 chosenMove.from = buffer[i].from;
                 chosenMove.to = buffer[i].to;
-                chosenMove.promo = _NO_PROMO;
                 leastVal = val;
               }
           }
-        victimVal = SEE_lookup(capturingPiece);                     //  Look up value of the victim.
+        victimVal = SEE_SCORE_PAWN;                                 //  Value of the victim.
         gainsLen++;
         gains[gainsLen] = victimVal - gains[gainsLen - 1];
 
         capturingPiece = gs.board[chosenMove.from];                 //  Identify the capturing piece.
         makeMove(&chosenMove, &gs);                                 //  Make the capture.
-        team = gs.whiteToMove ? 'w' : 'b';
+        team = gs.blackToMove ? 'b' : 'w';
       }
 
     if(gainsLen > 0)
@@ -522,22 +390,4 @@ signed int SEE(Move* move, GameState* src)
       }
 
     return gains[0];
-  }
-
-/* Look up a rough material score for each piece. */
-signed int SEE_lookup(char piece)
-  {
-    if(piece == _WHITE_PAWN || piece == _BLACK_PAWN)
-      return SEE_SCORE_PAWN;
-    if(piece == _WHITE_KNIGHT || piece == _BLACK_KNIGHT)
-      return SEE_SCORE_KNIGHT;
-    if(piece == _WHITE_BISHOP || piece == _BLACK_BISHOP)
-      return SEE_SCORE_BISHOP;
-    if(piece == _WHITE_ROOK || piece == _BLACK_ROOK)
-      return SEE_SCORE_ROOK;
-    if(piece == _WHITE_QUEEN || piece == _BLACK_QUEEN)
-      return SEE_SCORE_QUEEN;
-    if(piece == _WHITE_KING || piece == _BLACK_KING)
-      return SEE_SCORE_KING;
-    return 0;
   }
