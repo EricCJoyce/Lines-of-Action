@@ -14,20 +14,78 @@ function animate()
             case 'move':         Select_A = animationInstruction.a;
                                  Select_B = animationInstruction.b;
                                  commit_mp3.play();
-                                 if(Object.hasOwn(animationInstruction, 'promo'))
-                                   PromotionTarget = animationInstruction.promo;
-                                 else
-                                   PromotionTarget = _NO_PROMO;
                                  move(animationInstruction.a, animationInstruction.b);
                                  break;
             case 'die':          Select_A = animationInstruction.a;
                                  Select_B = animationInstruction.b;
-                                 if(Object.hasOwn(animationInstruction, 'promo'))
-                                   PromotionTarget = animationInstruction.promo;
-                                 else
-                                   PromotionTarget = _NO_PROMO;
-                                 commit_mp3.play();
                                  die(animationInstruction.b);
+                                 break;
+            case 'pass':         commit_mp3.play();
+                                 switch(currentLang)
+                                   {
+                                     case 'Spanish': if(variantSetup == 'scrambledeggs')
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Chorizo debe pasar.'));
+                                                         else
+                                                           alert(alertStringScrub('Huevo debe pasar.'));
+                                                       }
+                                                     else
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Negro debe pasar.'));
+                                                         else
+                                                           alert(alertStringScrub('Blanco debe pasar.'));
+                                                       }
+                                                     break;
+                                     case 'German':  if(variantSetup == 'scrambledeggs')
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Wurst muss passen.'));
+                                                         else
+                                                           alert(alertStringScrub('Ei muss passen.'));
+                                                       }
+                                                     else
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Das schwarze Team muss passen.'));
+                                                         else
+                                                           alert(alertStringScrub('Das wei\xDFe Team muss passen.'));
+                                                       }
+                                                     break;
+                                     case 'Polish':  if(variantSetup == 'scrambledeggs')
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Kie&#322;basa musi zda&#263; kolej.'));
+                                                         else
+                                                           alert(alertStringScrub('Jajko musi zda&#263; kolej.'));
+                                                       }
+                                                     else
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Czarny zesp&#243;&#322; musi zda&#263; kolej.'));
+                                                         else
+                                                           alert(alertStringScrub('Bia&#322;y zesp&#243;&#322; musi zda&#263; kolej.'));
+                                                       }
+                                                     break;
+                                     default:        if(variantSetup == 'scrambledeggs')
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('"Sausage" passes.'));
+                                                         else
+                                                           alert(alertStringScrub('"Egg" passes.'));
+                                                       }
+                                                     else
+                                                       {
+                                                         if(gropius.team == 'Black')
+                                                           alert(alertStringScrub('Black passes.'));
+                                                         else
+                                                           alert(alertStringScrub('White passes.'));
+                                                       }
+                                   }
+                                                                    //  Update the game state.
+                                 gameEngine.instance.exports.makeMove_client(a, b);
+                                 swapTurns();
                                  break;
           }
       }
@@ -36,12 +94,12 @@ function animate()
 function move(a, b)
   {
     animationTarget = 0;
-    while(animationTarget < gamePieces.length && gamePieces[animationTarget].chessposition != a)
+    while(animationTarget < gamePieces.length && gamePieces[animationTarget].boardposition != a)
       animationTarget++;
 
     if(animationTarget < gamePieces.length)
       {
-        gamePieces[animationTarget].chessposition = b;              //  Update internal position.
+        gamePieces[animationTarget].boardposition = b;              //  Update internal position.
 
         var start_x = convIndexToX(a);
         var start_y = convIndexToY(a);
@@ -75,8 +133,7 @@ function move(a, b)
           });
         tweenTail.onComplete(function()
           {
-                                                                    //  Update the game state.
-            gameEngine.instance.exports.makeMove_client(a, b, _NO_PROMO);
+            gameEngine.instance.exports.makeMove_client(a, b);      //  Update the game state.
             swapTurns();
           });
 
@@ -88,12 +145,14 @@ function move(a, b)
 function die(a)
   {
     animationTarget = 0;
-    while(animationTarget < gamePieces.length && gamePieces[animationTarget].chessposition != a)
+    while(animationTarget < gamePieces.length && gamePieces[animationTarget].boardposition != a)
       animationTarget++;
 
     if(animationTarget < gamePieces.length)
       {
-        gamePieces[animationTarget].chessposition = _NOTHING;       //  Update internal position.
+        capture_mp3.play();
+
+        gamePieces[animationTarget].boardposition = _NOTHING;       //  Update internal position.
 
         animate_startScale = {x: gamePieces[animationTarget].scale.x,
                               y: gamePieces[animationTarget].scale.y,
@@ -120,7 +179,7 @@ function removeDeadMesh()
     var markedForDeath = [];
     for(i = 0; i < gamePieces.length; i++)
       {
-        if(gamePieces[i].chessposition == _NOTHING)
+        if(gamePieces[i].boardposition == _NOTHING)
           markedForDeath.push(i);
       }
     while(markedForDeath.length > 0)
@@ -151,42 +210,74 @@ function swapTurns()
 
         if(winFlag == GAME_OVER_BLACK_WINS)
           {
-            i = 0;                                                  //  Highlight the checkmated king.
-            while(!(gameEngine.instance.exports.isBlack_client(i) && gameEngine.instance.exports.isKing_client(i)))
-              i++;
-            selectedSq(i);
+            for(i = _A1; i < _NOTHING; i++)                         //  Highlight the winning team.
+              {
+                if(gameEngine.instance.exports.isBlack_client(i))
+                  targetedSq(i);
+              }
 
             switch(currentLang)
               {
-                case 'Spanish': alert(alertStringScrub('\xA1Jaque mate!'));  break;
-                case 'German': alert(alertStringScrub('Schachmatt!'));  break;
-                case 'Polish': alert(alertStringScrub('Mat!'));  break;
-                default: alert(alertStringScrub('Checkmate!'));
+                case 'Spanish': if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('\xA1El chorizo gana!'));
+                                else
+                                  alert(alertStringScrub('\xA1El negro gana!'));
+                                break;
+                case 'German':  if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('Die Wurst gewinnt!'));
+                                else
+                                  alert(alertStringScrub('Schwarz gewinnt!'));
+                                break;
+                case 'Polish':  if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('Kie&#322;basa wygrywa!'));
+                                else
+                                  alert(alertStringScrub('Czarny wygrywa!'));
+                                break;
+                default:        if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('Sausage wins!'));
+                                else
+                                  alert(alertStringScrub('Black wins!'));
               }
           }
         else if(winFlag == GAME_OVER_WHITE_WINS)
           {
-            i = 0;                                                  //  Highlight the checkmated king.
-            while(!(gameEngine.instance.exports.isWhite_client(i) && gameEngine.instance.exports.isKing_client(i)))
-              i++;
-            selectedSq(i);
+            for(i = _A1; i < _NOTHING; i++)                         //  Highlight the winning team.
+              {
+                if(gameEngine.instance.exports.isWhite_client(i))
+                  targetedSq(i);
+              }
 
             switch(currentLang)
               {
-                case 'Spanish': alert(alertStringScrub('\xA1Jaque mate!'));  break;
-                case 'German': alert(alertStringScrub('Schachmatt!'));  break;
-                case 'Polish': alert(alertStringScrub('Mat!'));  break;
-                default: alert(alertStringScrub('Checkmate!'));
+                case 'Spanish': if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('\xA1El huevo gana!'));
+                                else
+                                  alert(alertStringScrub('\xA1El blanco gana!'));
+                                break;
+                case 'German':  if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('Das Ei gewinnt!'));
+                                else
+                                  alert(alertStringScrub('Wei&#223; gewinnt!'));
+                                break;
+                case 'Polish':  if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('Jajko wygrywa!'));
+                                else
+                                  alert(alertStringScrub('Bia&#322;y wygrywa!'));
+                                break;
+                default:        if(variantSetup == 'scrambledeggs')
+                                  alert(alertStringScrub('Egg wins!'));
+                                else
+                                  alert(alertStringScrub('White wins!'));
               }
           }
         else
           {
             switch(currentLang)
               {
-                case 'Spanish': alert(alertStringScrub('\xA1Estancamiento!'));  break;
-                case 'German': alert(alertStringScrub('Patt!'));  break;
-                case 'Polish': alert(alertStringScrub('Pat!'));  break;
-                default: alert(alertStringScrub('Stalemate!'));
+                case 'Spanish': alert(alertStringScrub('\xA1Empate!'));     break;
+                case 'German':  alert(alertStringScrub('Unentschieden!'));  break;
+                case 'Polish':  alert(alertStringScrub('Remis!'));          break;
+                default:        alert(alertStringScrub('Draw!'));
               }
           }
       }
@@ -227,6 +318,75 @@ function swapTurns()
           }
 
         gameEngine.instance.exports.draw();                         //  Output to the console.
+                                                                    //  It is the human's turn, and the human must pass.
+        if(HumansTurn && !gameEngine.instance.exports.hasAnyMoves_client())
+          {
+            switch(currentLang)
+              {
+                case 'Spanish': if(variantSetup == 'scrambledeggs')
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('Huevo debe pasar.'));
+                                    else
+                                      alert(alertStringScrub('Chorizo debe pasar.'));
+                                  }
+                                else
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('Blanco debe pasar.'));
+                                    else
+                                      alert(alertStringScrub('Negro debe pasar.'));
+                                  }
+                                break;
+                case 'German':  if(variantSetup == 'scrambledeggs')
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('Ei muss passen.'));
+                                    else
+                                      alert(alertStringScrub('Wurst muss passen.'));
+                                  }
+                                else
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('Das wei\xDFe Team muss passen.'));
+                                    else
+                                      alert(alertStringScrub('Das schwarze Team muss passen.'));
+                                  }
+                                break;
+                case 'Polish':  if(variantSetup == 'scrambledeggs')
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('Jajko musi zda&#263; kolej.'));
+                                    else
+                                      alert(alertStringScrub('Kie&#322;basa musi zda&#263; kolej.'));
+                                  }
+                                else
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('Bia&#322;y zesp&#243;&#322; musi zda&#263; kolej.'));
+                                    else
+                                      alert(alertStringScrub('Czarny zesp&#243;&#322; musi zda&#263; kolej.'));
+                                  }
+                                break;
+                default:        if(variantSetup == 'scrambledeggs')
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('"Egg" passes.'));
+                                    else
+                                      alert(alertStringScrub('"Sausage" passes.'));
+                                  }
+                                else
+                                  {
+                                    if(gropius.team == 'Black')
+                                      alert(alertStringScrub('White passes.'));
+                                    else
+                                      alert(alertStringScrub('Black passes.'));
+                                  }
+              }
+                                                                    //  Update the game state.
+            gameEngine.instance.exports.makeMove_client(_FORCED_TO_PASS, _FORCED_TO_PASS);
+            swapTurns();
+          }
       }
 
     return;

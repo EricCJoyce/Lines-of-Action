@@ -3,16 +3,16 @@
 
 #include "gamestate.h"
                                                                     //  Weights determined by TDLeaf(lambda).
-#define WEIGHT_CONCENTRATION              1.2
-#define WEIGHT_CENTRALIZATION             1.0
-#define WEIGHT_CENTER_OF_MASS             1.0
+#define WEIGHT_CONCENTRATION              1.00
+#define WEIGHT_CENTRALIZATION             1.01
+#define WEIGHT_CENTER_OF_MASS             0.99
 #define WEIGHT_QUADS                      1.0
-#define WEIGHT_MOBILITY                   1.0
-#define WEIGHT_WALLS_COM                  1.0
-#define WEIGHT_WALLS_INNER4               1.0
-#define WEIGHT_WALLS_INNER12              1.0
-#define WEIGHT_CONNECTEDNESS              6.0
-#define WEIGHT_UNIFORMITY                 8.0
+#define WEIGHT_MOBILITY                   0.99
+#define WEIGHT_WALLS_COM                  0.99
+#define WEIGHT_WALLS_INNER4               0.99
+#define WEIGHT_WALLS_INNER12              0.98
+#define WEIGHT_CONNECTEDNESS              1.0
+#define WEIGHT_UNIFORMITY                 1.0
 
 #define CENTRALIZATION_WEIGHT_0          -8.0                       /* Penalty per piece occupying the corners */
 #define CENTRALIZATION_WEIGHT_1          -2.5                       /* Penalty per piece occupying the edges */
@@ -85,6 +85,13 @@ unsigned int getMovesForTeam(bool black, GameState* gs, Move* buffer)
                   }
               }
           }
+      }
+
+    if(movesCtr == 0)                                               //  If there are no moves to make, the player must pass.
+      {
+        buffer[movesCtr].from = _PASS;
+        buffer[movesCtr].to = _PASS;
+        movesCtr++;
       }
 
     return movesCtr;

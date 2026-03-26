@@ -2,7 +2,7 @@
 
 Game logic module for the human player.
 
-sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src emscripten-c emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getCurrentState','_getMovesBuffer','_sideToMove_client','_isBlack_client','_isWhite_client','_isEmpty_client','_getMovesIndex_client','_makeMove_client','_isTerminal_client','_isWin_client','_draw']" -Wl,--no-entry "gamelogic.c" -o "gamelogic.wasm"
+sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src emscripten-c emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getCurrentState','_getMovesBuffer','_sideToMove_client','_isBlack_client','_isWhite_client','_isEmpty_client','_hasAnyMoves_client','_getMovesIndex_client','_makeMove_client','_isTerminal_client','_isWin_client','_draw']" -Wl,--no-entry "gamelogic.c" -o "gamelogic.wasm"
 
 */
 
@@ -27,6 +27,7 @@ bool isBlack_client(unsigned char);
 bool isWhite_client(unsigned char);
 bool isEmpty_client(unsigned char);
 
+bool hasAnyMoves_client(void);
 unsigned int getMovesIndex_client(unsigned char);
 void makeMove_client(unsigned char, unsigned char);
 bool isTerminal_client(void);
@@ -162,6 +163,33 @@ bool isEmpty_client(unsigned char index)
     GameState gs;
     deserialize(&gs);                                               //  Recover GameState from buffer.
     return isEmpty(index, &gs);
+  }
+
+bool hasAnyMoves_client(void)
+  {
+    GameState gs;
+    deserialize(&gs);                                               //  Recover GameState from buffer.
+
+    unsigned int movesCtr = 0;
+    Move potentialmoves[_MAX_MOVES];                                //  Assumes generous upper bound of moves per piece.
+    unsigned int potentialmovesCtr = 0;
+    unsigned int i;
+    unsigned char index;
+
+    for(index = 0; index < _NONE; index++)
+      {
+        if((gs.blackToMove && isBlack(index, &gs)) || (!gs.blackToMove && isWhite(index, &gs)))
+          {
+            potentialmovesCtr = getMovesIndex(index, &gs, potentialmoves);
+            if(potentialmovesCtr > 0)
+              {
+                for(i = 0; i < potentialmovesCtr; i++)
+                  movesCtr++;
+              }
+          }
+      }
+
+    return movesCtr > 0;
   }
 
 bool isTerminal_client(void)

@@ -8,8 +8,6 @@ sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,sourc
 #include "gropius.h"
 
 #define SEE_SCORE_PAWN               10                             /* Static Exchange Evaluation, rough pawn score. */
-#define MOVE_SORTING_PROMO_BONUS    800                             /* Static Exchange Evaluation, rough promotion bonus. */
-#define MOVE_SORTING_CHECK_BONUS     50                             /* Static Exchange Evaluation, rough putting-opponent-in-check bonus. */
 
 /**************************************************************************************************
  Typedefs  */

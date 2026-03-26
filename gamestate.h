@@ -10,6 +10,7 @@
 #include <time.h>
 
 #define _NONE                    64
+#define _PASS                    65
 #define _TOTAL_PIECES            12                                 /* At most, 12 pieces to a side. */
 
 #define _EMPTY                 0x00
@@ -61,9 +62,14 @@ unsigned char columnMileage(unsigned char, GameState*);
 unsigned char rowMileage(unsigned char, GameState*);
 unsigned char forwardSlashMileage(unsigned char, GameState*);
 unsigned char backSlashMileage(unsigned char, GameState*);
+unsigned char getCol(unsigned char, unsigned char*);
+unsigned char getRow(unsigned char, unsigned char*);
+unsigned char getForwardSlash(unsigned char, unsigned char*);
+unsigned char getBackSlash(unsigned char, unsigned char*);
 
 unsigned char isWin(GameState*);
 bool terminal(GameState*);
+unsigned char bfs(unsigned char, GameState*);
 
 bool isEmpty(unsigned char, GameState*);
 bool isBlack(unsigned char, GameState*);
@@ -71,6 +77,8 @@ bool isWhite(unsigned char, GameState*);
 bool sameSide(unsigned char, unsigned char, GameState*);
 bool opposed(unsigned char, unsigned char, GameState*);
 char getTeam(unsigned char, GameState*);
+unsigned char totalBlack(GameState*);
+unsigned char totalWhite(GameState*);
 
 unsigned char uSet(unsigned char, char*, GameState*, unsigned char*);
 unsigned char dSet(unsigned char, char*, GameState*, unsigned char*);
@@ -91,11 +99,6 @@ unsigned char dl(unsigned char);
 unsigned char dr(unsigned char);
 unsigned char row(unsigned char);
 unsigned char col(unsigned char);
-
-unsigned char getCol(unsigned char, unsigned char*);
-unsigned char getRow(unsigned char, unsigned char*);
-unsigned char getForwardSlash(unsigned char, unsigned char*);
-unsigned char getBackSlash(unsigned char, unsigned char*);
 
 /**************************************************************************************************
  Globals  */
@@ -121,10 +124,14 @@ void copyGameState(GameState* src, GameState* dst)
 
 void makeMove(Move* move, GameState* gs)
   {
-    gs->board[move->to] = gs->board[move->from];
-    gs->board[move->from] = _EMPTY;
-
-    gs->blackToMove = !gs->blackToMove;                             //  Flip flag.
+    if(move->from < _NONE && move->to < _NONE)
+      {
+        gs->board[move->to] = gs->board[move->from];
+        gs->board[move->from] = _EMPTY;
+        gs->blackToMove = !gs->blackToMove;                         //  Flip flag.
+      }
+    else if(move->from == _PASS && move->to == _PASS)
+      gs->blackToMove = !gs->blackToMove;                           //  Flip flag.
 
     return;
   }
@@ -152,8 +159,8 @@ char nextToMove(GameState* gs)
 unsigned int getMoves(GameState* gs, Move* buffer)
   {
     unsigned int movesCtr = 0;
-    Move potentialmoves[_MAX_MOVES];                                //  Assumes generous upper bound of moves per piece.
-    unsigned int potentialmovesCtr = 0;
+    Move localmoves[_MAX_MOVES];                                    //  Assumes generous upper bound of moves per piece.
+    unsigned int localmovesCtr = 0;
     unsigned int i;
     unsigned char index;
 
@@ -161,17 +168,24 @@ unsigned int getMoves(GameState* gs, Move* buffer)
       {
         if((gs->blackToMove && isBlack(index, gs)) || (!gs->blackToMove && isWhite(index, gs)))
           {
-            potentialmovesCtr = getMovesIndex(index, gs, potentialmoves);
-            if(potentialmovesCtr > 0)
+            localmovesCtr = getMovesIndex(index, gs, localmoves);
+            if(localmovesCtr > 0)
               {
-                for(i = 0; i < potentialmovesCtr; i++)
+                for(i = 0; i < localmovesCtr; i++)
                   {
-                    buffer[movesCtr].from = potentialmoves[i].from;
-                    buffer[movesCtr].to = potentialmoves[i].to;
+                    buffer[movesCtr].from = localmoves[i].from;
+                    buffer[movesCtr].to = localmoves[i].to;
                     movesCtr++;
                   }
               }
           }
+      }
+
+    if(movesCtr == 0)                                               //  If there are no moves to make, the player must pass.
+      {
+        buffer[movesCtr].from = _PASS;
+        buffer[movesCtr].to = _PASS;
+        movesCtr++;
       }
 
     return movesCtr;
@@ -189,174 +203,186 @@ unsigned int getMovesIndex(unsigned char index, GameState* gs, Move* buffer)
     if(!isEmpty(index, gs))
       {
         mileage = columnMileage(index, gs);                         //  Column mileage.
-        target = index;                                             //  Probe UP.
-        for(i = 0; i < mileage; i++)
-          target = u(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
+        if(mileage > 0)
           {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe UP.
+            for(i = 0; i < mileage; i++)
+              target = u(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = u(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = u(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
-              }
-          }
 
-        target = index;                                             //  Probe DOWN.
-        for(i = 0; i < mileage; i++)
-          target = d(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
-          {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe DOWN.
+            for(i = 0; i < mileage; i++)
+              target = d(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = d(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
-              }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = d(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
           }
 
         mileage = rowMileage(index, gs);                            //  Row mileage.
-        target = index;                                             //  Probe LEFT.
-        for(i = 0; i < mileage; i++)
-          target = l(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
+        if(mileage > 0)
           {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe LEFT.
+            for(i = 0; i < mileage; i++)
+              target = l(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = l(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = l(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
-              }
-          }
 
-        target = index;                                             //  Probe RIGHT.
-        for(i = 0; i < mileage; i++)
-          target = r(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
-          {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe RIGHT.
+            for(i = 0; i < mileage; i++)
+              target = r(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = r(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
-              }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = r(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
           }
 
         mileage = forwardSlashMileage(index, gs);                   //  Forward-slash mileage.
-        target = index;                                             //  Probe UP-RIGHT.
-        for(i = 0; i < mileage; i++)
-          target = ur(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
+        if(mileage > 0)
           {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe UP-RIGHT.
+            for(i = 0; i < mileage; i++)
+              target = ur(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = ur(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = ur(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
-            if(!blocked)
+
+            target = index;                                         //  Probe DOWN-LEFT.
+            for(i = 0; i < mileage; i++)
+              target = dl(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = dl(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
           }
 
-        target = index;                                             //  Probe DOWN-LEFT.
-        for(i = 0; i < mileage; i++)
-          target = dl(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
+        mileage = backSlashMileage(index, gs);                      //  Back-slash mileage.
+        if(mileage > 0)
           {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe DOWN-RIGHT.
+            for(i = 0; i < mileage; i++)
+              target = dr(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = dl(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = dr(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
-              }
-          }
 
-        mileage = forwardSlashMileage(index, gs);                   //  Back-slash mileage.
-        target = index;                                             //  Probe DOWN-RIGHT.
-        for(i = 0; i < mileage; i++)
-          target = dr(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
-          {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
+            target = index;                                         //  Probe UP-LEFT.
+            for(i = 0; i < mileage; i++)
+              target = ul(target);
+            if(target < _NONE && (opposed(index, target, gs) || isEmpty(target, gs)))
               {
-                intermediate = dr(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
-              }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
-              }
-          }
-
-        target = index;                                             //  Probe UP-LEFT.
-        for(i = 0; i < mileage; i++)
-          target = ul(target);
-        if(target < _NONE && (opposed(index, target, board) || isEmpty(target, board)))
-          {
-            blocked = false;
-            intermediate = index;
-            for(i = 0; i < mileage - 1; i++)
-              {
-                intermediate = ul(intermediate);
-                if(opposed(index, intermediate, board))
-                  blocked = true;
-              }
-            if(!blocked)
-              {
-                buffer[movesCtr].from = index;
-                buffer[movesCtr].to = target;
-                movesCtr++;
+                blocked = false;
+                intermediate = index;
+                for(i = 0; i < mileage - 1; i++)
+                  {
+                    intermediate = ul(intermediate);
+                    if(opposed(index, intermediate, gs))
+                      blocked = true;
+                  }
+                if(!blocked)
+                  {
+                    buffer[movesCtr].from = index;
+                    buffer[movesCtr].to = target;
+                    movesCtr++;
+                  }
               }
           }
       }
@@ -441,6 +467,96 @@ unsigned char backSlashMileage(unsigned char index, GameState* gs)
       }
 
     return ctr;
+  }
+
+/* Write to given buffer all indices in the column of the given index. */
+unsigned char getCol(unsigned char index, unsigned char* c)
+  {
+    unsigned char i, j = 0;
+
+    if(index < _NONE)
+      {
+        i = col(index);
+        while(i < _NONE)
+          {
+            c[j] = i;
+            j++;
+            i = u(i);
+          }
+      }
+    else
+      {
+        for(i = 0; i < 8; i++)
+          c[i] = _NONE;
+      }
+
+    return 8;
+  }
+
+/* Write to given buffer all indices in the row of the given index. */
+unsigned char getRow(unsigned char index, unsigned char* c)
+  {
+    unsigned char i, j = 0;
+
+    if(index < _NONE)
+      {
+        i = row(index) * 8;
+        while(row(i) == row(index))
+          {
+            c[j] = i;
+            j++;
+            i++;
+          }
+      }
+    else
+      {
+        for(i = 0; i < 8; i++)
+          c[i] = _NONE;
+      }
+
+    return 8;
+  }
+
+/* Write to given buffer all indices in the forward slash of the given index. */
+unsigned char getForwardSlash(unsigned char index, unsigned char* c)
+  {
+    unsigned char start, stop;
+    unsigned char len = 0;                                          //  Will always include at least one index.
+
+    start = index;                                                  //  "Rewind" dl() as far as we can.
+    while(dl(start) < _NONE)
+      start = dl(start);
+
+    stop = start;                                                   //  Forward ur() as far as we can and count.
+    c[len++] = start;
+    while(ur(stop) < _NONE)
+      {
+        stop = ur(stop);
+        c[len++] = stop;
+      }
+
+    return len;
+  }
+
+/* Write to given buffer all indices in the back slash of the given index. */
+unsigned char getBackSlash(unsigned char index, unsigned char* c)
+  {
+    unsigned char start, stop;
+    unsigned char len = 0;                                          //  Will always include at least one index.
+
+    start = index;                                                  //  "Rewind" dr() as far as we can.
+    while(dr(start) < _NONE)
+      start = dr(start);
+
+    stop = start;                                                   //  Forward ul() as far as we can and count.
+    c[len++] = start;
+    while(ul(stop) < _NONE)
+      {
+        stop = ul(stop);
+        c[len++] = stop;
+      }
+
+    return len;
   }
 
 /**************************************************************************************************
@@ -533,7 +649,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
             vlen++;
             visited[vlen - 1] = nSq;                                //  "Enqueue" this "node".
 
-            if(u(nSq) < _NONE && sameSide(index, u(nSq), board))    //  "Enqueue" UP.
+            if(u(nSq) < _NONE && sameSide(index, u(nSq), gs))       //  "Enqueue" UP.
               {
                 i = 0;
                 while(i < qlen && queue[i] != u(nSq))               //  Do not enqueue duplicates.
@@ -544,7 +660,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = u(nSq);
                   }
               }
-            if(ur(nSq) < _NONE && sameSide(index, ur(nSq), board))  //  "Enqueue" UP-RIGHT.
+            if(ur(nSq) < _NONE && sameSide(index, ur(nSq), gs))     //  "Enqueue" UP-RIGHT.
               {
                 i = 0;
                 while(i < qlen && queue[i] != ur(nSq))              //  Do not enqueue duplicates.
@@ -555,7 +671,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = ur(nSq);
                   }
               }
-            if(r(nSq) < _NONE && sameSide(index, r(nSq), board))    //  "Enqueue" RIGHT.
+            if(r(nSq) < _NONE && sameSide(index, r(nSq), gs))       //  "Enqueue" RIGHT.
               {
                 i = 0;
                 while(i < qlen && queue[i] != r(nSq))               //  Do not enqueue duplicates.
@@ -566,7 +682,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = r(nSq);
                   }
               }
-            if(dr(nSq) < _NONE && sameSide(index, dr(nSq), board))  //  "Enqueue" DOWN-RIGHT.
+            if(dr(nSq) < _NONE && sameSide(index, dr(nSq), gs))     //  "Enqueue" DOWN-RIGHT.
               {
                 i = 0;
                 while(i < qlen && queue[i] != dr(nSq))              //  Do not enqueue duplicates.
@@ -577,7 +693,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = dr(nSq);
                   }
               }
-            if(d(nSq) < _NONE && sameSide(index, d(nSq), board))    //  "Enqueue" DOWN.
+            if(d(nSq) < _NONE && sameSide(index, d(nSq), gs))       //  "Enqueue" DOWN.
               {
                 i = 0;
                 while(i < qlen && queue[i] != d(nSq))               //  Do not enqueue duplicates.
@@ -588,7 +704,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = d(nSq);
                   }
               }
-            if(dl(nSq) < _NONE && sameSide(index, dl(nSq), board))  //  "Enqueue" DOWN-LEFT.
+            if(dl(nSq) < _NONE && sameSide(index, dl(nSq), gs))     //  "Enqueue" DOWN-LEFT.
               {
                 i = 0;
                 while(i < qlen && queue[i] != dl(nSq))              //  Do not enqueue duplicates.
@@ -599,7 +715,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = dl(nSq);
                   }
               }
-            if(l(nSq) < _NONE && sameSide(index, l(nSq), board))    //  "Enqueue" LEFT.
+            if(l(nSq) < _NONE && sameSide(index, l(nSq), gs))       //  "Enqueue" LEFT.
               {
                 i = 0;
                 while(i < qlen && queue[i] != l(nSq))               //  Do not enqueue duplicates.
@@ -610,7 +726,7 @@ unsigned char bfs(unsigned char index, GameState* gs)
                     queue[qlen - 1] = l(nSq);
                   }
               }
-            if(ul(nSq) < _NONE && sameSide(index, ul(nSq), board))  //  "Enqueue" UP-LEFT.
+            if(ul(nSq) < _NONE && sameSide(index, ul(nSq), gs))     //  "Enqueue" UP-LEFT.
               {
                 i = 0;
                 while(i < qlen && queue[i] != ul(nSq))              //  Do not enqueue duplicates.
@@ -670,6 +786,56 @@ char getTeam(unsigned char index, GameState* gs)
     if(isWhite(index, gs))
       return 'w';
     return 'e';
+  }
+
+/* Count up black pieces on the board. */
+unsigned char totalBlack(GameState* gs)
+  {
+    unsigned char i;
+    unsigned char ctr = 0;
+    for(i = 0; i < _NONE; i++)
+      {
+        if(isBlack(i, gs))
+          ctr++;
+      }
+    return ctr;
+  }
+
+/* Count up white pieces on the board. */
+unsigned char totalWhite(GameState* gs)
+  {
+    unsigned char i;
+    unsigned char ctr = 0;
+    for(i = 0; i < _NONE; i++)
+      {
+        if(isWhite(i, gs))
+          ctr++;
+      }
+    return ctr;
+  }
+
+unsigned char getBlack(GameState* gs, unsigned char* buffer)
+  {
+    unsigned char i;
+    unsigned char len = 0;
+    for(i = 0; i < _NONE; i++)
+      {
+        if(isBlack(i, gs))
+          buffer[len++] = i;
+      }
+    return len;
+  }
+
+unsigned char getWhite(GameState* gs, unsigned char* buffer)
+  {
+    unsigned char i;
+    unsigned char len = 0;
+    for(i = 0; i < _NONE; i++)
+      {
+        if(isWhite(i, gs))
+          buffer[len++] = i;
+      }
+    return len;
   }
 
 /**************************************************************************************************
@@ -777,96 +943,6 @@ unsigned char row(unsigned char i)
     if(i < _NONE)
       return (i - (i & 7)) / 8;                                     //  i & 7 == i % 8 because 8 is a power of 2
     return _NONE;
-  }
-
-/* Write to given buffer all indices in the column of the given index. */
-unsigned char getCol(unsigned char index, unsigned char* c)
-  {
-    unsigned char i, j, k = 0;
-
-    if(index < _NONE)
-      {
-        i = col(index);
-        j = i + 57;
-
-        while(i < j)
-          {
-            c[k] = i;
-            i += 8;
-            k++;
-          }
-      }
-    else
-      {
-        for(i = 0; i < 8; i++)
-          c[i] = _NONE;
-      }
-
-    return 8;
-  }
-
-/* Write to given buffer all indices in the row of the given index. */
-unsigned char getRow(unsigned char index, unsigned char* c)
-  {
-    unsigned char i, j, k = 0;
-
-    if(index < _NONE)
-      {
-        i = row(index) * 8;
-        j = i + 8;
-
-        while(i < j)
-          {
-            c[k] = i;
-            i++;
-            k++;
-          }
-      }
-    else
-      {
-        for(i = 0; i < 8; i++)
-          c[i] = _NONE;
-      }
-
-    return 8;
-  }
-
-/* Write to given buffer all indices in the forward slash of the given index. */
-unsigned char getForwardSlash(unsigned char index, unsigned char* c)
-  {
-    unsigned char pos;
-    unsigned char len = 0;
-
-    pos = index;                                                    //  "Rewind" dl() as far as we can.
-    while(dl(pos) < _NONE)
-      pos = dl(pos);
-
-    do                                                              //  Now "forward" ur() as far as we can.
-      {
-        c[len++] = stop;
-        pos = ur(pos);
-      } while(ur(pos) < _NONE);
-
-    return len;
-  }
-
-/* Write to given buffer all indices in the back slash of the given index. */
-unsigned char getBackSlash(unsigned char index, unsigned char* c)
-  {
-    unsigned char pos;
-    unsigned char len = 0;
-
-    pos = index;                                                    //  "Rewind" dr() as far as we can.
-    while(dr(pos) < _NONE)
-      pos = dr(pos);
-
-    do                                                              //  Now "forward" ul() as far as we can.
-      {
-        c[len++] = stop;
-        pos = ul(pos);
-      } while(ul(pos) < _NONE);
-
-    return len;
   }
 
 #endif
