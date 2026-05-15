@@ -58,7 +58,7 @@ which is the one of four moves on file for this state.
 | Name  | Bytes  | Description |
 | :---:	| :----: | :---------: |
 | _GAMESTATE_BYTE_SIZE | 17 | Number of bytes needed to encode a game state |
-| _MOVE_BYTE_SIZE | 2 | Number of bytes needed to describe a move in Chess |
+| _MOVE_BYTE_SIZE | 2 | Number of bytes needed to describe a move in Lines of Action |
 | _MAX_NUM_TARGETS | 32 | A (generous) upper bound on how many distinct destinations (not distinct moves) may be available to a player from a single index |
 | _MAX_MOVES | 128 | A (generous) upper bound on how many moves may be made by a team in a single turn |
 | _PARAMETER_ARRAY_SIZE | 16 | Encodes values that are written to and read from the the search process |
