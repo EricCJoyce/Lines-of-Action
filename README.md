@@ -55,7 +55,7 @@ which is the one of four moves on file for this state.
 
 ## Constants for the game engine
 
-| Name  | Bytes  | Description |
+| Name  | Value  | Description |
 | :---:	| :----: | :---------: |
 | _GAMESTATE_BYTE_SIZE | 17 | Number of bytes needed to encode a game state |
 | _MOVE_BYTE_SIZE | 2 | Number of bytes needed to describe a move in Lines of Action |
