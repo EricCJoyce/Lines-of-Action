@@ -1,6 +1,6 @@
 /*
 
-sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src emscripten-c em++ -I ./ -Os -s STANDALONE_WASM -s INITIAL_MEMORY=18743296 -s STACK_SIZE=1048576 -s EXPORTED_FUNCTIONS="['_getMaxPly','_getInputBuffer','_getParametersBuffer','_getQueryGameStateBuffer','_getQueryMoveBuffer','_getAnswerGameStateBuffer','_getAnswerMovesBuffer','_getOutputBuffer','_getZobristHashBuffer','_getTranspositionTableBuffer','_getNegamaxSearchBuffer','_getNegamaxMovesBuffer','_getKillerMovesBuffer','_getHistoryTableBuffer','_setSearchId','_getSearchId','_getStatus','_setControlFlag','_unsetControlFlag','_getControlByte','_setTargetDepth','_getTargetDepth','_getDepthAchieved','_setDeadline','_getDeadline','_resetNodesSearched','_getNodesSearched','_finalDepthAchieved','_finalScore','_getNodeStackSize','_getMovesArenaSize','_initSearch','_negamax']" -Wl,--no-entry "negamax.cpp" -o "negamax.wasm"
+sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src c-wasm em++ -I ./ -Os -s STANDALONE_WASM -s INITIAL_MEMORY=14745600 -s STACK_SIZE=1048576 -s EXPORTED_FUNCTIONS="['_getMaxPly','_getInputBuffer','_getParametersBuffer','_getQueryGameStateBuffer','_getQueryMoveBuffer','_getAnswerGameStateBuffer','_getAnswerMovesBuffer','_getOutputBuffer','_getZobristHashBuffer','_getTranspositionTableBuffer','_getNegamaxSearchBuffer','_getNegamaxMovesBuffer','_getKillerMovesBuffer','_getHistoryTableBuffer','_setSearchId','_getSearchId','_getStatus','_setControlFlag','_unsetControlFlag','_getControlByte','_setTargetDepth','_getTargetDepth','_getDepthAchieved','_setDeadline','_getDeadline','_resetNodesSearched','_getNodesSearched','_finalDepthAchieved','_finalScore','_getNodeStackSize','_getMovesArenaSize','_initSearch','_negamax']" -Wl,--no-entry "negamax.cpp" -o "negamax.wasm"
 
 */
 
@@ -27,7 +27,7 @@ sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,sourc
 #define _NEGAMAX_NODE_BYTE_SIZE                 69                  /* Number of bytes needed to store a negamax node. */
 #define _NEGAMAX_MOVE_BYTE_SIZE                  3                  /* Number of bytes needed to store a negamax move. */
 
-#define _KILLER_MOVE_PER_PLY                     2                  /* Typical for chess engines. */
+#define _KILLER_MOVE_PER_PLY                     2                  /* Typical for other chess engines. */
 #define _KILLER_MOVE_MAX_DEPTH                  64                  /* Simply something "comfortably large". */
 #define KILLER_NOT_FOUND                         0
 #define KILLER_FOUND_FIRST                       1
@@ -67,7 +67,6 @@ sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,sourc
 
 #define NN_FLAG_IS_PV                         0x08                  /* Indicates a PV node. */
 #define NN_FLAG_AT_ROOT                       0x10                  /* Indicates a root node. */
-#define NN_FLAG_IN_CHECK                      0x20                  /* Indicates that the side to move is in check here (cached). */
                                                                     /* Convenience macros. */
 #define NN_SET_FLAG(node, f)    ((node)->flags |=  (f))
 #define NN_CLEAR_FLAG(node, f)  ((node)->flags &= ~(f))
@@ -111,7 +110,7 @@ typedef struct NegamaxNodeType                                      //  TOTAL: 6
     unsigned char phase;                                            //  (1 byte) In {_PHASE_ENTER_NODE, _PHASE_GEN_AND_ORDER, _PHASE_NEXT_MOVE,
                                                                     //               _PHASE_AFTER_CHILD, _PHASE_FINISH_NODE}.
     unsigned char flags;                                            //  (1 byte) Covers [NN_FLAG_NULL_TRIED, NN_FLAG_NULL_IN_PROGRESS, NN_FLAG_IS_NULL_CHILD,
-                                                                    //                   NN_FLAG_IS_PV, NN_FLAG_AT_ROOT, NN_FLAG_IN_CHECK].
+                                                                    //                   NN_FLAG_IS_PV, NN_FLAG_AT_ROOT].
   } NegamaxNode;
 
 typedef struct NegamaxMoveType                                      //  TOTAL: 3 = _NEGAMAX_MOVE_BYTE_SIZE bytes.
@@ -254,7 +253,7 @@ unsigned char inputGameStateBuffer[_GAMESTATE_BYTE_SIZE];           //  Input fr
                                                                     //  Deadline in ms: 4 bytes.
 unsigned char inputParametersBuffer[_PARAMETER_ARRAY_SIZE];         //  Nodes Searched: 4 bytes.
 
-                                                                    //  25 bytes.
+                                                                    //  24 bytes.
                                                                     //  Global array containing: {serialized game state (sanity check),
                                                                     //                            1-byte uchar          (depth achieved),
                                                                     //                            serialized move       (move to make in this state),
@@ -282,7 +281,7 @@ unsigned char answerMovesBuffer[_MAX_MOVES * (_MOVE_BYTE_SIZE + 5)];//  The actu
                                                                     //  1,032 bytes.
                                                                     //  For "zobristHashBuffer" included in "zobrist.h".
 
-                                                                    //  9,437,185 bytes.
+                                                                    //  8,912,897 bytes.
                                                                     //  For "transpositionTableBuffer" included in "transposition.h".
 
                                                                     //  4,521,988 bytes.
@@ -312,21 +311,21 @@ unsigned char killerMovesTableBuffer[_KILLER_MOVE_PER_PLY * 2 * _KILLER_MOVE_MAX
                                                                     //  2 is for 2 teams, white and black.
                                                                     //  Note that we don't care about promotion choices here; just bump up moves (from, to).
                                                                     //  This buffer is arranged as:
-                                                                    //  [ White to move, From-index 0,  To-indices 0 .. 63,
+                                                                    //  [ Black to move, From-index 0,  To-indices 0 .. 63,
                                                                     //                   From-index 1,  To-indices 0 .. 63,
                                                                     //                   From-index 2,  To-indices 0 .. 63,
                                                                     //                                 . . .
                                                                     //                   From-index 63, To-indices 0 .. 63,
-                                                                    //    Black to move, From-index 0,  To-indices 0 .. 63,
+                                                                    //    White to move, From-index 0,  To-indices 0 .. 63,
                                                                     //                   From-index 1,  To-indices 0 .. 63,
                                                                     //                   From-index 2,  To-indices 0 .. 63,
                                                                     //                                 . . .
 unsigned char historyTableBuffer[2 * _NONE * _NONE];                //                   From-index 63, To-indices 0 .. 63  ]
 
-                                                                    //  SUBTOTAL:  14,166,255 bytes.
+                                                                    //  SUBTOTAL:  13,641,966 bytes.
                                                                     //  Give the stack 1,048,576 bytes.
-                                                                    //  TOTAL:     15,214,831 bytes.
-                                                                    //  Round to:  15,269,888 = 233 pages (cover units of 65,536).
+                                                                    //  TOTAL:     14,690,542 bytes.
+                                                                    //  Round to:  14,745,600 = 225 pages (cover units of 65,536).
 
 /**************************************************************************************************
  Maximum ply.  */
@@ -611,11 +610,9 @@ void initSearch(void)
 
     root.parentMove[0] = _NONE;                                     //  Set the root's parent-move to a blank-move.
     root.parentMove[1] = _NONE;
-    root.parentMove[2] = 0;
 
     root.bestMove[0] = _NONE;                                       //  Set the root's best-move to a blank-move.
     root.bestMove[1] = _NONE;
-    root.bestMove[2] = 0;
 
     root.moveOffset = 0;                                            //  Set offset into moves buffer for the children of root.
     root.moveCount = 0;                                             //  Set the number of children root has.
@@ -753,12 +750,11 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
   {
     unsigned char gamestateByteArray[_GAMESTATE_BYTE_SIZE];         //  Store locally for comparison.
     unsigned int negamaxSearchBufferLength;
-    unsigned char material;
     signed char R, newDepth;
     NegamaxNode child;
     float standPat;                                                 //  Score at a given moment in search.
     unsigned int i, j;
-    bool b_isTerminal, b_isSideToMoveInCheck;
+    bool b_isTerminal;
 
     //////////////////////////////////////////////////////////////////  Compute the hash for this node.
     for(i = 0; i < _GAMESTATE_BYTE_SIZE; i++)                       //  Copy unique byte-signature for the current game state to a local buffer.
@@ -787,13 +783,6 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
         return;
       }
 
-    //////////////////////////////////////////////////////////////////  Check whether the side to move is in check.
-    b_isSideToMoveInCheck = isSideToMoveInCheck();                  //  (Ask the Evaluation Module) Is the side to move in the given game state in check?
-    if(b_isSideToMoveInCheck)
-      NN_SET_FLAG(node, NN_FLAG_IN_CHECK);
-    else
-      NN_CLEAR_FLAG(node, NN_FLAG_IN_CHECK);
-
     //////////////////////////////////////////////////////////////////  Leaf-node test.
     if(node->depth <= 0)
       {
@@ -806,43 +795,30 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
             return;
           }
 
-        if(!NN_HAS_FLAG(node, NN_FLAG_IN_CHECK))
-          {
-            standPat = evaluate();                                  //  Evaluation as if this were the end of search.
-            incrementNodeCtr();                                     //  That evaluation counts.
+        standPat = evaluate();                                      //  Evaluation as if this were the end of search.
+        incrementNodeCtr();                                         //  That evaluation counts.
 
-            if(standPat >= node->beta)                              //  Stand-pat cutoff.
-              {
-                node->value = node->beta;                           //  Standard quiescence search returns beta on cutoff.
-                node->phase = _PHASE_FINISH_NODE;
-                saveNode(node, gsIndex);
-                return;
-              }
-            if(standPat > node->alpha)                              //  Improve alpha using stand-pat.
-              node->alpha = standPat;
-            node->value = standPat;                                 //  Baseline best score is stand-pat (since "do nothing" is allowed when not in check).
-          }
-        else                                                        //  In check: standing pat is NOT allowed.
+        if(standPat >= node->beta)                                  //  Stand-pat cutoff.
           {
-            node->value = -std::numeric_limits<float>::infinity();
-            node->bestMove[0] = _NONE;
-            node->bestMove[1] = _NONE;
-            node->bestMove[2] = _NO_PROMO;
+            node->value = node->beta;                               //  Standard quiescence search returns beta on cutoff.
+            node->phase = _PHASE_FINISH_NODE;
+            saveNode(node, gsIndex);
+            return;
           }
+        if(standPat > node->alpha)                                  //  Improve alpha using stand-pat.
+          node->alpha = standPat;
+        node->value = standPat;                                     //  Baseline best score is stand-pat.
 
-        node->phase = _PHASE_GEN_AND_ORDER;                         //  Now search noisy replies (captures/promos), or evasions if in check.
+        node->phase = _PHASE_GEN_AND_ORDER;                         //  Now search noisy replies (captures/promos).
         saveNode(node, gsIndex);
         return;
       }
-
-    //////////////////////////////////////////////////////////////////  Count up non-pawn material.
-    material = nonPawnMaterial();
 
     //////////////////////////////////////////////////////////////////  Attempt null-move pruning.
                                                                     //  Conditions are correct to try null-move pruning.
     if( !NN_HAS_FLAG(node, NN_FLAG_NULL_TRIED) && !NN_HAS_FLAG(node, NN_FLAG_IS_NULL_CHILD) &&
         !NN_HAS_FLAG(node, NN_FLAG_AT_ROOT)    && !NN_HAS_FLAG(node, NN_FLAG_IS_PV)         &&
-        !NN_HAS_FLAG(node, NN_FLAG_IN_CHECK)   && node->depth >= 3 && material > 3           )
+        node->depth >= 3                                                                     )
       {
                                                                     //  - Null-move pruning.
         NN_SET_FLAG(node, NN_FLAG_NULL_TRIED);                      //  Indicate that we did try the null move for this node.
@@ -866,11 +842,9 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
 
         child.parentMove[0] = _NONE;                                //  Set child's parent-move to the null move.
         child.parentMove[1] = _NONE;
-        child.parentMove[2] = 0;
 
         child.bestMove[0] = _NONE;                                  //  Set child's best-move to a blank move.
         child.bestMove[1] = _NONE;
-        child.bestMove[2] = 0;
 
         child.moveOffset = 0;                                       //  Set child's offset to zero.
         child.moveCount = 0;                                        //  Set child's number of moves to zero.
@@ -998,7 +972,7 @@ void expansion_step(unsigned int gsIndex, NegamaxNode* node)
     unsigned int numMoves;
 
     NegamaxMove movesBuffer[_MAX_MOVES];                            //  Local storage to be filled, sorted, then appended to "negamaxMovesBuffer".
-    signed int scores[_MAX_MOVES];                                  //  Scores furnished by both Evaluation Module (SEE, promotion, check)
+    signed int scores[_MAX_MOVES];                                  //  Scores furnished by both Evaluation Module (SEE)
                                                                     //  and by Negamax Module (TT best move, killer move, history heuristic).
     NegamaxMove move;
     signed int score;
@@ -1011,7 +985,6 @@ void expansion_step(unsigned int gsIndex, NegamaxNode* node)
 
     unsigned int outCount;
     bool isQ;
-    bool inCheck;
     unsigned char ttHint[_MOVE_BYTE_SIZE];
 
     unsigned int i, j, answerBufferCtr;
@@ -1019,7 +992,6 @@ void expansion_step(unsigned int gsIndex, NegamaxNode* node)
     negamaxMoveBufferLength = restoreNegamaxMoveBufferLength();     //  Save the current length of the MOVE stack, before addition of moves.
 
     isQ = (node->depth <= 0);                                       //  Is the given node a quiescence-search extension?
-    inCheck = NN_HAS_FLAG(node, NN_FLAG_IN_CHECK);                  //  Is the given node in check?
 
     for(j = 0; j < _MOVE_BYTE_SIZE; j++)                            //
       ttHint[j] = node->bestMove[j];
@@ -1034,12 +1006,11 @@ void expansion_step(unsigned int gsIndex, NegamaxNode* node)
                                                                     //  (These are scored, quick-n-cheap, BUT NOT SORTED.)
 
                                                                     //  Only reset value/bestMove for NORMAL (not quiescence-extension) nodes.
-    if(!isQ)                                                        //  In quiescence search, we already set node->value to standPat
-      {                                                             //  (or -inf in check) in enterNode_step.
+    if(!isQ)                                                        //  In quiescence search, we already set node->value to standPat in enterNode_step.
+      {
         node->value = -std::numeric_limits<float>::infinity();      //  Cause the first legal move to be the best found so far.
         node->bestMove[0] = _NONE;
         node->bestMove[1] = _NONE;
-        node->bestMove[2] = _NO_PROMO;
       }
 
     copyEvalOutput2AnswerMovesBuffer( numMoves );                   //  Copy from Evaluation Module's output buffer to Negamax Module's "answerMovesBuffer".
@@ -1058,17 +1029,15 @@ void expansion_step(unsigned int gsIndex, NegamaxNode* node)
 
         move.quietMove = answerMovesBuffer[answerBufferCtr++];      //  0: quiet; 1: capture or promotion.
 
-        if(isQ && !inCheck)                                         //  Quiescence filtering:
-          {                                                         //  - if in check: keep ALL legal moves (evasions)
-                                                                    //  - else: keep only noisy moves (captures/promotions)
+        if(isQ)                                                     //  Quiescence filtering:
+          {                                                         //  - keep only noisy moves (captures/promotions)
             if(move.quietMove == MOVEFLAG_QUIET)                    //  Quiet ==> Skip in quiescence search.
               continue;
           }
                                                                     //  TT best-move bump (use ttHint because node->bestMove may have been cleared).
         if(ttHint[0] != _NONE && ttHint[1] != _NONE &&
            move.moveByteArray[0] == ttHint[0] &&
-           move.moveByteArray[1] == ttHint[1] &&
-           move.moveByteArray[2] == ttHint[2])
+           move.moveByteArray[1] == ttHint[1])
           score += MOVE_SORTING_TRANSPO_BEST_MOVE_BONUS;
 
         if(!isQ && move.quietMove == MOVEFLAG_QUIET)                //  Killer/history (not applied to quiescence search.)
@@ -1091,10 +1060,8 @@ void expansion_step(unsigned int gsIndex, NegamaxNode* node)
     node->moveNextPtr = 0;
 
     if(node->moveCount == 0)                                        //  If there is nothing to search:
-      {                                                             //  - In quiescence search when not in check:
+      {                                                             //  - In quiescence search:
                                                                     //    node->value already holds stand-pat from enterNode_step()
-                                                                    //  - In check: if truly mated, isTerminal() should have caught it;
-                                                                    //    otherwise finish with whatever baseline you set.
         node->phase = _PHASE_FINISH_NODE;
         saveNode(node, gsIndex);
         return;
@@ -1160,11 +1127,9 @@ void nextMove_step(unsigned int gsIndex, NegamaxNode* node)
     child.parent = gsIndex;                                         //  Fill in the child node, descended from the given node.
     child.parentMove[0] = move.moveByteArray[0];                    //  Move the parent made to get here.
     child.parentMove[1] = move.moveByteArray[1];
-    child.parentMove[2] = move.moveByteArray[2];
 
     child.bestMove[0] = _NONE;                                      //  Blank.
     child.bestMove[1] = _NONE;
-    child.bestMove[2] = _NO_PROMO;
 
     child.moveOffset = 0;                                           //  Blank.
     child.moveCount = 0;
@@ -1251,7 +1216,7 @@ void afterChild_step(unsigned int gsIndex, NegamaxNode* node)
     restoreMove(moveIndex, &move);                                  //  Restore the move.
 
     if(score > parent.value || (bestUnset && valueUnset))           //  Even if all positions are losing, store a "best move"
-      {                                                             //  so that we avoid returning the uninitialized (_NONE, _NONE, _NO_PROMO).
+      {                                                             //  so that we avoid returning the uninitialized (_NONE, _NONE).
         parent.value = score;
         for(i = 0; i < _MOVE_BYTE_SIZE; i++)
           parent.bestMove[i] = node->parentMove[i];
@@ -1693,211 +1658,53 @@ void saveMove(NegamaxMove* moveData, unsigned int index)
 unsigned long long hash(unsigned char* hashInputBuffer)
   {
     unsigned long long h = 0L;
-    unsigned int index;
-    unsigned int i;
-    unsigned char j, k, l;
-    unsigned char mask;
     unsigned char buffer8[8];                                       //  Byte array to hold byte array version of unsigned long long.
     unsigned long long ull8;                                        //  The unsigned long long we will actually use to hash.
 
-    if((hashInputBuffer[0] & 128) == 128)                           //  Hash the side to move.
+    unsigned char x, y;
+    unsigned char i = 0, l;
+    unsigned char ch, mask;
+
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Decode black.
       {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[W_TO_MOVE * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 64) == 64)                             //  Hash white's castling data.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[W_KINGSIDE_CASTLE * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 32) == 32)
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[W_QUEENSIDE_CASTLE * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 16) == 16)
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[W_CASTLED * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 8) == 8)                               //  Hash black's castling data.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[B_KINGSIDE_CASTLE * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 4) == 4)
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[B_QUEENSIDE_CASTLE * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    if((hashInputBuffer[0] & 2) == 2)
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[B_CASTLED * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
+        ch = hashInputBuffer[i++];
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if((ch & mask) == mask)
+              {
+                for(l = 0; l < 8; l++)                              //  Copy 8 bytes from the serial buffer.
+                  buffer8[l] = zobristHashBuffer[ (B_A1 + (y * 8 + x)) * 8 + l ];
+                memcpy(&ull8, buffer8, 8);                          //  Force the 8-byte buffer into an unsigned long long.
+                h ^= ull8;
+              }
+            mask >>= 1;
+          }
       }
 
-    if((hashInputBuffer[1] & 128) == 128)                           //  Hash whether a pawn's doulbe move previously occurred in column A.
+    for(y = 0; y < 8; y++)                                          //  (8 bytes) Decode white.
       {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_A * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 64) == 64)                        //  Hash whether a pawn's doulbe move previously occurred in column B.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_B * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 32) == 32)                        //  Hash whether a pawn's doulbe move previously occurred in column C.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_C * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 16) == 16)                        //  Hash whether a pawn's doulbe move previously occurred in column D.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_D * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 8) == 8)                          //  Hash whether a pawn's doulbe move previously occurred in column E.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_E * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 4) == 4)                          //  Hash whether a pawn's doulbe move previously occurred in column F.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_F * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 2) == 2)                          //  Hash whether a pawn's doulbe move previously occurred in column G.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_G * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
-      }
-    else if((hashInputBuffer[1] & 1) == 1)                          //  Hash whether a pawn's doulbe move previously occurred in column H.
-      {
-        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
-          buffer8[l] = zobristHashBuffer[PREV_DOUBLE_COL_H * 8 + l];
-        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
-        h ^= ull8;
+        ch = hashInputBuffer[i++];
+        mask = 128;
+        for(x = 0; x < 8; x++)
+          {
+            if((ch & mask) == mask)
+              {
+                for(l = 0; l < 8; l++)                              //  Copy 8 bytes from the serial buffer.
+                  buffer8[l] = zobristHashBuffer[ (W_A1 + (y * 8 + x)) * 8 + l ];
+                memcpy(&ull8, buffer8, 8);                          //  Force the 8-byte buffer into an unsigned long long.
+                h ^= ull8;
+              }
+            mask >>= 1;
+          }
       }
 
-    i = 2;
-    for(index = 0; index < _NONE; index++)
+    if((hashInputBuffer[i] & 128) == 128)                           //  Hash the side to move.
       {
-                                                                    //  There can be no pawns on row 1 or row 8.
-        if(hashInputBuffer[i] == _WHITE_PAWN && index >= 8 && index < 56)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(WP_A2 + index - 8) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_KNIGHT)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(WN_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_BISHOP)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(WB_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_ROOK)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(WR_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_QUEEN)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(WQ_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _WHITE_KING)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(WK_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-                                                                    //  There can be no pawns on row 1 or row 8.
-        else if(hashInputBuffer[i] == _BLACK_PAWN && index >= 8 && index < 56)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(BP_A2 + index - 8) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_KNIGHT)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(BN_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_BISHOP)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(BB_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_ROOK)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(BR_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_QUEEN)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(BQ_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-        else if(hashInputBuffer[i] == _BLACK_KING)
-          {
-            for(l = 0; l < 8; l++)                                  //  Copy 8 bytes from the serial buffer.
-              buffer8[l] = zobristHashBuffer[(BK_A1 + index) * 8 + l];
-            memcpy(&ull8, buffer8, 8);                              //  Force the 8-byte buffer into an unsigned long long.
-            h ^= ull8;
-          }
-
-        i++;
+        for(l = 0; l < 8; l++)                                      //  Copy 8 bytes from the serial buffer.
+          buffer8[l] = zobristHashBuffer[ B_TO_MOVE * 8 + l ];
+        memcpy(&ull8, buffer8, 8);                                  //  Force the 8-byte buffer into an unsigned long long.
+        h ^= ull8;
       }
 
     return h;
@@ -1967,7 +1774,7 @@ void killerAdd(unsigned char ply, unsigned char* moveByteArray)
 /* Look up the history-heuristic score for the given side to move, the given move (sans promotion). */
 unsigned int historyLookup(unsigned char sideToMove, unsigned char* moveByteArray)
   {
-    unsigned int offset = sideToMove * _NONE;
+    unsigned int offset = sideToMove * _NONE * _NONE;
 
     offset += moveByteArray[0] * _NONE + moveByteArray[1];
 
@@ -1979,7 +1786,7 @@ void historyUpdate(unsigned char sideToMove, unsigned char ply, unsigned char* m
   {
     unsigned int inc = ply * ply;
     unsigned int value;
-    unsigned int offset = sideToMove * _NONE;
+    unsigned int offset = sideToMove * _NONE * _NONE;
 
     offset += moveByteArray[0] * _NONE + moveByteArray[1];
     value = historyTableBuffer[offset] + inc;

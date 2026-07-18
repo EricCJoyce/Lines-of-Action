@@ -1,6 +1,6 @@
 /*
 
-sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src emscripten-c emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getInputGameStateBuffer','_getInputMoveBuffer','_getOutputGameStateBuffer','_getOutputMovesBuffer','_sideToMove_eval','_isTerminal_eval','_makeMove_eval','_makeNullMove_eval','_evaluate_eval','_getMoves_eval']" -Wl,--no-entry "gropius.c" -o "eval.wasm"
+sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src c-wasm emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getInputGameStateBuffer','_getInputMoveBuffer','_getOutputGameStateBuffer','_getOutputMovesBuffer','_sideToMove_eval','_isTerminal_eval','_makeMove_eval','_makeNullMove_eval','_evaluate_eval','_getMoves_eval']" -Wl,--no-entry "gropius.c" -o "eval.wasm"
 
 */
 
@@ -319,7 +319,7 @@ unsigned int getMoves_eval()
         memcpy(buffer4, (unsigned char*)(&score_j), 4);             //  Force the SIGNED integer into a 4-byte temp buffer.
         for(k = 0; k < 4; k++)                                      //  Copy local SIGNED score to global output byte array.
           outputMovesBuffer[i++] = buffer4[k];
-                                                                    //  0: quiet; 1: capture or promotion.
+                                                                    //  0: quiet; 1: capture.
         outputMovesBuffer[i++] = (!isCapture(moves + j, &gs)) ? 0 : 1;
       }
 
