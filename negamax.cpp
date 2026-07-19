@@ -1654,6 +1654,12 @@ void saveMove(NegamaxMove* moveData, unsigned int index)
 /**************************************************************************************************
  Zobrist hashing  */
 
+/* Game State Encoding & Decoding
+
+   Byte [ 0,  7] = Black positions.
+   Byte [ 8, 15] = White positions.
+   Byte [    16] = Side to move (high bit) */
+
 /* Hash the given byte array "hashInputBuffer". */
 unsigned long long hash(unsigned char* hashInputBuffer)
   {

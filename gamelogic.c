@@ -57,6 +57,12 @@ unsigned char* getMovesBuffer(void)
     return &movesBuffer[0];
   }
 
+/* Game State Encoding & Decoding
+
+   Byte [ 0,  7] = Black positions.
+   Byte [ 8, 15] = White positions.
+   Byte [    16] = Side to move (high bit) */
+
 /* Pack a GameState into the unsigned-char buffer "currentState". */
 void serialize(GameState* gs)
   {
