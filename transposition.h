@@ -47,7 +47,7 @@ void deserializeTranspoRecord(unsigned char*, TranspoRecord*);
 
 /**************************************************************************************************
  Globals  */
-                                                                    //  9,437,185 bytes = 1 + 524,288 * 18.
+                                                                    //  8,912,897 bytes = 1 + 524,288 * 17.
                                                                     //  Global array containing the serialized transposition table:
                                                                     //  Generation-Byte + sizeof(TranspoRecord) * size-of-table.
 unsigned char transpositionTableBuffer[1 + _TRANSPO_TABLE_SIZE * _TRANSPO_RECORD_BYTE_SIZE];
@@ -72,7 +72,11 @@ unsigned char getGeneration(void)
 void incGeneration(void)
   {
     if(transpositionTableBuffer[0] == 255)
-      transpositionTableBuffer[0] = 1;
+      {
+                                                                    //  At roll-over, nuke the table.
+        memset(transpositionTableBuffer + 1, 0, sizeof(transpositionTableBuffer) - 1);
+        transpositionTableBuffer[0] = 1;                            //  Roll over to 1 because 0 means "empty slot".
+      }
     else
       transpositionTableBuffer[0]++;
     return;

@@ -75,6 +75,7 @@
 #define B_F8                 61
 #define B_G8                 62
 #define B_H8                 63
+
 #define W_A1                 64
 #define W_B1                 65
 #define W_C1                 66
