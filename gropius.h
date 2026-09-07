@@ -2,27 +2,27 @@
 #define __GROPIUS_H
 
 #include "gamestate.h"
-                                                                    //  Initial weights.
-#define WEIGHT_CONCENTRATION              1.0
-#define WEIGHT_CENTRALIZATION             1.0
-#define WEIGHT_CENTER_OF_MASS             1.0
-#define WEIGHT_QUADS                      1.0
-#define WEIGHT_MOBILITY                   1.0
-#define WEIGHT_WALLS_COM                  1.0
-#define WEIGHT_WALLS_INNER4               1.0
-#define WEIGHT_WALLS_INNER12              1.0
-#define WEIGHT_CONNECTEDNESS              1.0
-#define WEIGHT_UNIFORMITY                 1.0
+                                                                    //  Weights determined by TDLeaf(lambda).
+#define WEIGHT_CONCENTRATION              0.9166785478591919f
+#define WEIGHT_CENTRALIZATION            -0.0912860855460167f
+#define WEIGHT_CENTER_OF_MASS             0.6830976605415344f
+#define WEIGHT_QUADS                     -0.08846396952867508f
+#define WEIGHT_MOBILITY                   0.527048647403717f
+#define WEIGHT_WALLS_COM                  0.0649610161781311f
+#define WEIGHT_WALLS_INNER4              -0.036148808896541595f
+#define WEIGHT_WALLS_INNER12              0.01837129145860672f
+#define WEIGHT_CONNECTEDNESS              0.7143442034721375f
+#define WEIGHT_UNIFORMITY                 1.0032016038894653f
 
-#define CENTRALIZATION_WEIGHT_0          -8.0                       /* Penalty per piece occupying the corners */
-#define CENTRALIZATION_WEIGHT_1          -2.5                       /* Penalty per piece occupying the edges */
-#define CENTRALIZATION_WEIGHT_2          -2.0                       /* Penalty per piece occupying the outer orbit */
-#define CENTRALIZATION_WEIGHT_3           1.0                       /* Reward per piece occupying the inner orbit */
-#define CENTRALIZATION_WEIGHT_4           2.5                       /* Reward per piece occupying the center 12 */
-#define CENTRALIZATION_WEIGHT_5           5.0                       /* Reward per piece occupying the center 4 */
+#define CENTRALIZATION_WEIGHT_0          -8.0f                      /* Penalty per piece occupying the corners */
+#define CENTRALIZATION_WEIGHT_1          -2.5f                      /* Penalty per piece occupying the edges */
+#define CENTRALIZATION_WEIGHT_2          -2.0f                      /* Penalty per piece occupying the outer orbit */
+#define CENTRALIZATION_WEIGHT_3           1.0f                      /* Reward per piece occupying the inner orbit */
+#define CENTRALIZATION_WEIGHT_4           2.5f                      /* Reward per piece occupying the center 12 */
+#define CENTRALIZATION_WEIGHT_5           5.0f                      /* Reward per piece occupying the center 4 */
 
-#define QUAD3_BONUS                       1.0                       /* No bonus for Quad-1s or Quad-2s. */
-#define QUAD4_BONUS                       2.0
+#define QUAD3_BONUS                       1.0f                      /* No bonus for Quad-1s or Quad-2s. */
+#define QUAD4_BONUS                       2.0f
 
 #define QUAD_QUALIFYING_DISTANCE_TO_COM   2
 
@@ -149,7 +149,7 @@ float score(GameState* gs)
         else if(win == GAME_OVER_WHITE_WINS && !gs->blackToMove)    //  Discourage black from GIVING white the win.
           return INFINITY;
         if(win == GAME_OVER_DRAW)
-          return 0.0;
+          return 0.0f;
         else                                                        //  e.g. It is black's turn but white has won; it is white's tunr but black has won.
           return -INFINITY;
       }
@@ -210,7 +210,7 @@ float score(GameState* gs)
    */
 float concentration(unsigned char* team, unsigned char len)
   {
-    float h = 0.0;
+    float h = 0.0f;
     unsigned char i, j;
 
     for(i = 0; i < len; i++)                                        //  For each piece, compute distance to all other friendly pieces.
@@ -218,7 +218,7 @@ float concentration(unsigned char* team, unsigned char len)
         for(j = 0; j < len; j++)
           {
             if(i != j)                                              //  Exclude comparisons to self.
-              h += 1.0 / (float)distance(team[i], team[j]);         //  Accumulate values in range [0.142857143, 1.0]. Higher is better.
+              h += 1.0f / (float)distance(team[i], team[j]);        //  Accumulate values in range [0.142857143, 1.0]. Higher is better.
           }
       }
 
@@ -324,7 +324,7 @@ float evaluateCenterOfMass(unsigned char CoM)
  Control of the center  */
 float centralization(unsigned char* team, unsigned char len)
   {
-    float h = 0.0;
+    float h = 0.0f;
     unsigned char map[_NONE];                                       //  Store the map created by zones().
     unsigned char orbitCtrs[6];
     float weights[6];
@@ -358,7 +358,7 @@ float centralization(unsigned char* team, unsigned char len)
  The array 'team' contains the indices of Black or White, returned either by getBlack() or getWhite(). */
 float quads(unsigned char* team, unsigned char len, unsigned char CoM, GameState* gs)
   {
-    float h = 0.0;
+    float h = 0.0f;
     unsigned char quadBuffer[4];                                    //  Contains the valid (not off the board) indices of
                                                                     //    a 4-quad, 3-quad, 2-quad, or 1-quad.
     unsigned char i, j;                                             //  Iterators
@@ -448,6 +448,9 @@ float mobility(Move* posMoves, unsigned char posMovesLen, unsigned char posLen, 
 
     for(i = 0; i < posMovesLen; i++)
       {
+        if(posMoves[i].from == _PASS && posMoves[i].to == _PASS)
+          continue;
+
         h += (float)MOBILITY_MOVE_BONUS;                            //  Award for having a move.
 
         if( col(posMoves[i].to) == 0 || col(posMoves[i].to) == 7 ||
@@ -712,7 +715,7 @@ unsigned char wallsList(unsigned char* negTeam, unsigned char negTeamLen,
  material advantage. */
 float connectedness(unsigned char* posTeam, unsigned char posTeamLen, GameState* gs)
   {
-    float s = 0.0;
+    float s = 0.0f;
     unsigned char i;
     unsigned char p;
 
@@ -757,8 +760,8 @@ float connectedness(unsigned char* posTeam, unsigned char posTeamLen, GameState*
  B B . . . . B B  */
 float uniformity(unsigned char* posTeam, unsigned char posTeamLen)
   {
-    float h = 0.0;
-    float avg_x = 0.0, avg_y = 0.0;
+    float h = 0.0f;
+    float avg_x = 0.0f, avg_y = 0.0f;
     float x, y;
     unsigned char i;
 
@@ -778,7 +781,7 @@ float uniformity(unsigned char* posTeam, unsigned char posTeamLen)
       }
     h /= (float)posTeamLen;
 
-    return 5.0 - h;
+    return 5.0f - h;
   }
 
 #endif

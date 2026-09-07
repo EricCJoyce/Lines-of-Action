@@ -83,8 +83,8 @@ function animate()
                                                            alert(alertStringScrub('White passes.'));
                                                        }
                                    }
-                                                                    //  Update the game state.
-                                 gameEngine.instance.exports.makeMove_client(a, b);
+
+                                 gropius.commitRealMove(a, b);      //  Update the game state (and OBSERVE the update).
                                  swapTurns();
                                  break;
           }
@@ -133,7 +133,7 @@ function move(a, b)
           });
         tweenTail.onComplete(function()
           {
-            gameEngine.instance.exports.makeMove_client(a, b);      //  Update the game state.
+            gropius.commitRealMove(a, b);                           //  Update the game state (and OBSERVE the update).
             swapTurns();
           });
 
@@ -383,8 +383,8 @@ function swapTurns()
                                       alert(alertStringScrub('Black passes.'));
                                   }
               }
-                                                                    //  Update the game state.
-            gameEngine.instance.exports.makeMove_client(_FORCED_TO_PASS, _FORCED_TO_PASS);
+                                                                    //  Update the game state (and OBSERVE the update).
+            gropius.commitRealMove(_FORCED_TO_PASS, _FORCED_TO_PASS);
             swapTurns();
           }
       }

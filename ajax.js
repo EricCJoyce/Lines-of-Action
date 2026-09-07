@@ -43,9 +43,9 @@ function reqSess()
                     for(i = _A1; i < _NOTHING; i++)                 //  Set up the board according to the game state encoded in the byte array.
                       {
                         if(gameEngine.instance.exports.isBlack_client(i) == 1)
-                          initPiece('B', i, pawnGeometry);
+                          initPiece('B', i, pawnGeometry, true);
                         else if(gameEngine.instance.exports.isWhite_client(i) == 1)
-                          initPiece('W', i, pawnGeometry);
+                          initPiece('W', i, pawnGeometry, true);
                       }
                   }
                 else                                                //  Error-label or garbage
@@ -62,6 +62,115 @@ function reqSess()
           }
       };
     ReqXML.send(params);
+  }
+
+/* Called by changing the drop-down menu. */
+function changeSetup()
+  {
+    var posSel = document.getElementById('starting-position').value;
+    var ReqXML = new XMLHttpRequest();                              //  IE 7+, Firefox, Chrome, Opera, Safari
+    var i;
+    var params = 'sendRequest=changesetup';
+    params += '&pos=' + posSel;                                     //  Specify which set up to deploy.
+
+    if(!gameStarted)                                                //  Don't try to chage the position after play has begun.
+      {
+        ReqXML.open("POST", 'obj/sess/startpos.php', true);
+        ReqXML.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        ReqXML.onreadystatechange = function()
+          {
+            if(ReqXML.readyState == 4 && ReqXML.status == 200)
+              {
+                if(ReqXML.responseText == "")                       //  Null return: unknown error
+                  {
+                    switch(currentLang)
+                      {
+                        case "Spanish": alert(alertStringScrub("Error"));  break;
+                        case "German": alert(alertStringScrub("Fehler"));  break;
+                        case "Polish": alert(alertStringScrub("B&#322;&#261;d na stronie"));  break;
+                        default: alert(alertStringScrub("Error"));
+                      }
+                  }
+                else
+                  {
+                    var parse = ReqXML.responseText.split('|');
+                    var arr;
+                    var i;
+                    var newConfig;
+                    var blackClock = document.getElementById('black-clock');
+                    var whiteClock = document.getElementById('white-clock');
+
+                    if(parse[0] == 'linesofaction' && parse[1] == 'ok')
+                      {
+                        newConfig = parse[2];                       //  Save the set-up name.
+                        parse = parse[3].split(',');                //  Repurpose "parse".
+                        for(i = 0; i < parse.length; i++)           //  Load buffer.
+                          {
+                            arr = new Uint8Array(1);                //  Force byte type.
+                            arr[0] = parseInt(parse[i]);
+                            gameStateBuffer[i] = arr[0];
+                          }
+
+                        if(newConfig == 'scrambledeggs')
+                          {
+                            variantSetup = 'scrambledeggs';
+                            blackClock.classList.replace('black-loa', 'black-scrambledeggs');
+                            whiteClock.classList.replace('white-loa', 'white-scrambledeggs');
+
+                            for(i = _A1; i < _NOTHING; i++)
+                              {
+                                normalMaterials[i] = normalMaterials_ScrambledEggs[i];
+                                selectedMaterials[i] = selectedMaterials_ScrambledEggs[i];
+                                targetedMaterials[i] = targetedMaterials_ScrambledEggs[i];
+                              }
+                          }
+                        else
+                          {
+                            variantSetup = 'loa';
+                            blackClock.classList.replace('black-scrambledeggs', 'black-loa');
+                            whiteClock.classList.replace('white-scrambledeggs', 'white-loa');
+
+                            for(i = _A1; i < _NOTHING; i++)
+                              {
+                                normalMaterials[i] = normalMaterials_LOA[i];
+                                selectedMaterials[i] = selectedMaterials_LOA[i];
+                                targetedMaterials[i] = targetedMaterials_LOA[i];
+                              }
+                          }
+
+                        normalSq();                                 //  Set all squares.
+
+                        for(i = _A1; i < _NOTHING; i++)             //  Set up the board according to the game state encoded in the byte array.
+                          {
+                            if(gameEngine.instance.exports.isBlack_client(i) == 1)
+                              initPiece('B', i, pawnGeometry, (newConfig != 'scrambledeggs'));
+                            else if(gameEngine.instance.exports.isWhite_client(i) == 1)
+                              initPiece('W', i, pawnGeometry, (newConfig != 'scrambledeggs'));
+                          }
+                      }
+                    else                                            //  Error-label or garbage
+                      {
+                        switch(currentLang)
+                          {
+                            case "Spanish": alert(alertStringScrub("Error"));  break;
+                            case "German": alert(alertStringScrub("Fehler"));  break;
+                            case "Polish": alert(alertStringScrub("B&#322;&#261;d na stronie"));  break;
+                            default: alert(alertStringScrub("Error"));
+                          }
+                      }
+                  }
+              }
+          };
+
+        for(i = 0; i < gamePieces.length; i++)                      //  Remove all pieces from the scene.
+          scene.remove(gamePieces[i]);
+
+        gamePieces = [];                                            //  Remove all pieces from "gamePieces" array.
+
+        setup_mp3.play();                                           //  Play the sound.
+
+        ReqXML.send(params);
+      }
   }
 
 //////////////////////////////////////////////////////////////////////

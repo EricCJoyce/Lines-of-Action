@@ -1,6 +1,6 @@
 /*
 
-sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src c-wasm emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getInputGameStateBuffer','_getInputMoveBuffer','_getOutputGameStateBuffer','_getOutputMovesBuffer','_sideToMove_eval','_isTerminal_eval','_makeMove_eval','_makeNullMove_eval','_evaluate_eval','_getMoves_eval']" -Wl,--no-entry "gropius.c" -o "eval.wasm"
+sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src c-wasm emcc -Os -s STANDALONE_WASM -s INITIAL_HEAP=1048576 -s EXPORTED_FUNCTIONS="['_getInputGameStateBuffer','_getInputMoveBuffer','_getOutputGameStateBuffer','_getOutputMovesBuffer','_getOutputRepetitionStateBuffer','_sideToMove_eval','_isTerminal_eval','_makeMove_eval','_evaluate_eval','_getMoves_eval','_repetitionState_eval','_historyVerdict_eval']" -Wl,--no-entry "gropius.c" -o "eval.wasm"
 
 */
 
@@ -8,6 +8,9 @@ sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,sourc
 #include "gropius.h"
 
 #define SEE_SCORE_PAWN               10                             /* Static Exchange Evaluation, rough pawn score. */
+
+#define HISTORY_OK                    0                             /* The number of occurrences of the given game state do NOT cause draw by repetition. */
+#define HISTORY_DRAW                  1                             /* The number of occurrences of the given game state DOES CAUSE draw by repetition. */
 
 /**************************************************************************************************
  Typedefs  */
@@ -20,6 +23,7 @@ unsigned char* getInputGameStateBuffer(void);
 unsigned char* getInputMoveBuffer(void);
 unsigned char* getOutputGameStateBuffer(void);
 unsigned char* getOutputMovesBuffer(void);
+unsigned char* getOutputRepetitionStateBuffer(void);
 
 void serializeGameStateToBuffer(GameState*, unsigned char*);
 void serializeMoveToBuffer(Move*, unsigned char*);
@@ -29,9 +33,11 @@ void deserializeMove(Move*);
 unsigned char sideToMove_eval(void);
 bool isTerminal_eval(void);
 void makeMove_eval(void);
-void makeNullMove_eval(void);
 float evaluate_eval(void);
 unsigned int getMoves_eval(void);
+void repetitionState_eval(void);
+unsigned char historyVerdict_eval(unsigned int);
+
 signed int SEE(Move*, GameState*);
 
 /**************************************************************************************************
@@ -49,6 +55,10 @@ unsigned char outputGameStateBuffer[_GAMESTATE_BYTE_SIZE];          //  Global a
                                                                     //    _MOVE_BYTE_SIZE  :  bytes encoding a single move,
                                                                     //    4                :  bytes for signed integer, which is rough score.
 unsigned char outputMovesBuffer[_MAX_MOVES * (_MOVE_BYTE_SIZE + 5)];//    1                :  byte (should be Boolean) indicating whether move is "quiet".
+
+                                                                    //  Global array containing a specially-encoded game state for repetition testing.
+                                                                    //  (LOA rules decalre a draw after thee repeated states.)
+unsigned char outputRepetitionStateBuffer[_REPETITION_STATE_BYTE_SIZE];
 
 /**************************************************************************************************
  Functions  */
@@ -75,6 +85,12 @@ unsigned char* getOutputGameStateBuffer(void)
 unsigned char* getOutputMovesBuffer(void)
   {
     return &outputMovesBuffer[0];
+  }
+
+/* Expose the global array declared here to JavaScript.  */
+unsigned char* getOutputRepetitionStateBuffer(void)
+  {
+    return &outputRepetitionStateBuffer[0];
   }
 
 /* Write the given game state to the given buffer. */
@@ -209,27 +225,13 @@ void makeMove_eval(void)
     return;
   }
 
-/* For use by null-move pruning in tree-search.
-   Answer the Negamax Module's query, "What GameState results from a null-move in the game state in the input-gamestate buffer?"
-   Writes to "outputGameStateBuffer". */
-void makeNullMove_eval(void)
-  {
-    GameState gs;
-
-    deserializeGameState(&gs);                                      //  Recover GameState from buffer.
-
-    makeNullMove(&gs);                                              //  Make the move.
-
-    serializeGameStateToBuffer(&gs, outputGameStateBuffer);         //  Write updated GameState to output-gamestate buffer.
-
-    return;
-  }
-
 /* Answer the Negamax Module's query, "What is the evaluation of the GameState in the input-gamestate buffer?" */
 float evaluate_eval(void)
   {
     GameState gs;
+
     deserializeGameState(&gs);                                      //  Recover GameState from buffer.
+
     //return (float)tanh(score(&gs));                                 //  tanh() helps to saturate extreme evaluations and produce alpha-beta cutoffs.
     return score(&gs);                                              //  Negamax rule: always evaluate for the side that is now to move.
   }
@@ -260,14 +262,16 @@ unsigned int getMoves_eval()
     float connected_Prior, connected_Posterior;
 
     signed int score_j, scores[_MAX_MOVES];                         //  Use fast, cheap heuristics.
+    unsigned char result;
 
     unsigned char buffer4[4];                                       //  Byte array to hold leading int = number of moves in output buffer.
     unsigned int i, j, k;
 
+    deserializeGameState(&gs);                                      //  Recover GameState from buffer.
+
     blackMaterialLength_Prior = getBlack(&gs, blackMaterial_Prior); //  unsigned chars
     whiteMaterialLength_Prior = getWhite(&gs, whiteMaterial_Prior); //  unsigned chars
 
-    deserializeGameState(&gs);                                      //  Recover GameState from buffer.
     movesLen = getMoves(&gs, moves);                                //  Get moves.
 
     if(gs.blackToMove)                                              //  We will compare these before and after.
@@ -290,8 +294,12 @@ unsigned int getMoves_eval()
 
         copyGameState(&gs, &child);                                 //  Clone the source state.
         makeMove(moves + i, &child);                                //  Apply the candidate move.
-        if(terminal(&child))
+        result = isWin(&child);
+
+        if((gs.blackToMove  && result == GAME_OVER_BLACK_WINS) || (!gs.blackToMove && result == GAME_OVER_WHITE_WINS))
           scores[i] += 10000;
+        else if(result == GAME_OVER_BLACK_WINS || result == GAME_OVER_WHITE_WINS)
+          scores[i] -= 10000;
 
         blackMaterialLength_Posterior = getBlack(&child, blackMaterial_Posterior);
         whiteMaterialLength_Posterior = getWhite(&child, whiteMaterial_Posterior);
@@ -327,6 +335,28 @@ unsigned int getMoves_eval()
     return movesLen;
   }
 
+/* Write the canonical repetition identity of the GameState currently encoded in inputGameStateBuffer to outputRepetitionStateBuffer.
+   For LINES OF ACTION, it happens that the normal game state encoding is perfectly well suited for repetition-detection encoding,
+   so we simply copy the input buffer straight to the output buffer. */
+void repetitionState_eval(void)
+  {
+    unsigned char i;
+
+    for(i = 0; i < _REPETITION_STATE_BYTE_SIZE; i++)                //  Copy game state encoding to the repetition-state encoding output buffer.
+      outputRepetitionStateBuffer[i] = inputGameStateBuffer[i];
+
+    return;
+  }
+
+/* Allow a game-agnostic negamax engine to decide whether the given occurrence count is enough to force a draw. */
+unsigned char historyVerdict_eval(unsigned int occurrences)
+  {
+    if(occurrences >= _MAX_STATE_REPETITION)
+      return HISTORY_DRAW;
+
+    return HISTORY_OK;
+  }
+
 /* Static Exchange Evaluation */
 signed int SEE(Move* move, GameState* src)
   {
@@ -339,7 +369,7 @@ signed int SEE(Move* move, GameState* src)
     Move buffer[_TOTAL_PIECES];
     Move chosenMove;
     unsigned char len, i;
-    signed int leastVal, val, victimVal, j;
+    signed int victimVal, j;
     signed int stopHere, continueExchange;
 
     copyGameState(src, &gs);
@@ -356,17 +386,8 @@ signed int SEE(Move* move, GameState* src)
         if(len == 0)                                                //  No further captures.
           break;
 
-        leastVal = SEE_SCORE_PAWN;
-        for(i = 0; i < len; i++)
-          {
-            val = SEE_SCORE_PAWN;
-            if(val < leastVal)
-              {
-                chosenMove.from = buffer[i].from;
-                chosenMove.to = buffer[i].to;
-                leastVal = val;
-              }
-          }
+        chosenMove = buffer[0];
+
         victimVal = SEE_SCORE_PAWN;                                 //  Value of the victim.
         gainsLen++;
         gains[gainsLen] = victimVal - gains[gainsLen - 1];

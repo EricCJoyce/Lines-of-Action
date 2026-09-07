@@ -20,7 +20,7 @@ var NodeCtr = 0;                                                    //  Nodes se
 var thoughtStaged = false;                                          //  Whether or not the Artwork For Thinking SHOULD be visible
 var countStaged = false;                                            //  Whether or not the Node Counter SHOULD be visible
 
-var angle = 36;                                                     //  Current camera angle (36 looks nice, let's start with that)
+var angle = 14;                                                     //  Current camera angle (14 looks nice, let's start with that)
 var fullscreenAvailable = THREEx.FullScreen.available();            //  Whether fullscreen is available on this device
 var fullscreenActive = false;                                       //  Whether fullscreen is currently active
 var showParticles = true;                                           //  Toggle the particle effect
@@ -256,6 +256,7 @@ function loadWebASM()
 
             elementsLoaded++;                                       //  Check this load off our list.
             loadTotalReached();                                     //  Check the total.
+            console.log('Game-Logic WASM memory: ', (gameEngine.instance.exports.memory.buffer.byteLength / (1024 * 1024)).toFixed(2), 'MiB');
           });
       });
   }
@@ -296,7 +297,7 @@ function updatePlies()
   }
 
 //  Toggle A.I. side to play
-function updateAIPlaysBlack()
+function updateAIPlaysWhite()
   {
     var i;
 
@@ -322,7 +323,7 @@ function updateAIPlaysBlack()
         pullGUIComponents();                                        //  Cue the A.I. to make the first move
                                                                     //  It now becomes the A.I.'s turn!
         artworkForThinking(true);                                   //  Show the "thinking" artwork.
-        updateNodeCounter(philadelphia.nodeCtr);                    //  Show the A.I.'s node count.
+        updateNodeCounter(gropius.nodeCtr);                         //  Show the A.I.'s node count.
         nodeCounter(true);                                          //  Show the node counter.
       }
   }
@@ -386,6 +387,9 @@ function pullGUIComponents()
   {
     gameStarted = true;                                             //  The game has officially begun.
                                                                     //  Commit to the choices made for play and pull their controls from the control panel.
+    document.getElementById('setup-hdr-tr').style.display = 'none';
+    document.getElementById('starting-position-tr').style.display = 'none';
+
     document.getElementById('switch-sides-tr').style.display = 'none';
     document.getElementById('AIwhite').removeAttribute('onclick');
 
@@ -456,13 +460,15 @@ function updateGUIlabels()
         case 'Polish':  document.getElementById('project-title').innerHTML = 'LOA';
                         document.getElementById("node-counter-label").innerHTML = 'W&#281;z&#322;y rozwi&#261;zywane:';
 
+                        document.getElementById('setup-label').innerHTML = 'Ustawienie';
+
                         document.getElementById('view-label').innerHTML = 'Widzenie';
                         document.getElementById('angle-label').innerHTML = 'K&#261;t';
                         document.getElementById('fullscreen-label').innerHTML = 'Ca&#322;y ekran';
-                        document.getElementById('particles-label').innerHTML = '&#346;nieg';
+                        document.getElementById('particles-label').innerHTML = 'Li&#347;cie';
                         document.getElementById('ai-label').innerHTML = 'A.I.';
                         document.getElementById('plies-label').innerHTML = 'Poziomy';
-                        document.getElementById('aiblack-label').innerHTML = 'A.I. gra czarnymi';
+                        document.getElementById('aiwhite-label').innerHTML = 'A.I. gra bia&#322;ymi';
                         document.getElementById('timecontrol-label').innerHTML = 'Zegar szachowy';
                         document.getElementById('useclock-label').innerHTML = 'U&#380;ywaj zegara';
                         document.getElementById('minutesallocated-label').innerHTML = 'Limit minut';
@@ -472,13 +478,15 @@ function updateGUIlabels()
         case 'Spanish': document.getElementById('project-title').innerHTML = 'LOA';
                         document.getElementById("node-counter-label").innerHTML = 'Nodos evaluados:';
 
+                        document.getElementById('setup-label').innerHTML = 'Disposici&#243;n';
+
                         document.getElementById('view-label').innerHTML = 'Visto';
                         document.getElementById('angle-label').innerHTML = '&#193;ngulo';
                         document.getElementById('fullscreen-label').innerHTML = 'Pantalla completa';
-                        document.getElementById('particles-label').innerHTML = 'Nieve';
+                        document.getElementById('particles-label').innerHTML = 'Hojas';
                         document.getElementById('ai-label').innerHTML = 'A.I.';
                         document.getElementById('plies-label').innerHTML = 'Niveles';
-                        document.getElementById('aiblack-label').innerHTML = 'A.I. juega las piezas negras';
+                        document.getElementById('aiwhite-label').innerHTML = 'A.I. juega las piezas blancas';
                         document.getElementById('timecontrol-label').innerHTML = 'Reloj de ajedrez';
                         document.getElementById('useclock-label').innerHTML = 'Usa el reloj';
                         document.getElementById('minutesallocated-label').innerHTML = 'Minutos';
@@ -488,13 +496,15 @@ function updateGUIlabels()
         case 'German':  document.getElementById('project-title').innerHTML = 'LOA';
                         document.getElementById("node-counter-label").innerHTML = 'Knoten untersucht:';
 
+                        document.getElementById('setup-label').innerHTML = 'Einstellung';
+
                         document.getElementById('view-label').innerHTML = 'Sicht';
                         document.getElementById('angle-label').innerHTML = 'Blickwinkel';
                         document.getElementById('fullscreen-label').innerHTML = 'Vollbildansicht';
-                        document.getElementById('particles-label').innerHTML = 'Schnee';
+                        document.getElementById('particles-label').innerHTML = 'Bl&#228;tter';
                         document.getElementById('ai-label').innerHTML = 'A.I.';
                         document.getElementById('plies-label').innerHTML = 'Halbz&#252;ge voraus';
-                        document.getElementById('aiblack-label').innerHTML = 'A.I. spielt Schwarz';
+                        document.getElementById('aiwhite-label').innerHTML = 'A.I. spielt Wei&#223;';
                         document.getElementById('timecontrol-label').innerHTML = 'Bedenkzeit';
                         document.getElementById('useclock-label').innerHTML = 'Schachuhr';
                         document.getElementById('minutesallocated-label').innerHTML = 'Minuten';
@@ -504,13 +514,15 @@ function updateGUIlabels()
         default:        document.getElementById('project-title').innerHTML = 'Lines of Action';
                         document.getElementById("node-counter-label").innerHTML = 'Nodes searched:';
 
+                        document.getElementById('setup-label').innerHTML = 'Setup';
+
                         document.getElementById('view-label').innerHTML = 'View';
                         document.getElementById('angle-label').innerHTML = 'Angle';
                         document.getElementById('fullscreen-label').innerHTML = 'Fullscreen';
-                        document.getElementById('particles-label').innerHTML = 'Snow';
+                        document.getElementById('particles-label').innerHTML = 'Leaves';
                         document.getElementById('ai-label').innerHTML = 'A.I.';
                         document.getElementById('plies-label').innerHTML = 'Plies';
-                        document.getElementById('aiblack-label').innerHTML = 'A.I. plays black';
+                        document.getElementById('aiwhite-label').innerHTML = 'A.I. plays white';
                         document.getElementById('timecontrol-label').innerHTML = 'Time control';
                         document.getElementById('useclock-label').innerHTML = 'Timed game';
                         document.getElementById('minutesallocated-label').innerHTML = 'Minutes allocated';

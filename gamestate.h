@@ -2,34 +2,37 @@
 #define __GAMESTATE_H
 
 #include <ctype.h>
-#include <math.h>                                                   /* Needed for INFINITY. */
+#include <math.h>                                                   /* Needed for INFINITY and tanh. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
 
-#define _NONE                    64
-#define _PASS                    65
-#define _TOTAL_PIECES            12                                 /* At most, 12 pieces to a side. */
+#define _NONE                        64
+#define _PASS                        65
+#define _TOTAL_PIECES                12                             /* At most, 12 pieces to a side. */
 
-#define _EMPTY                 0x00
-#define _BLACK_PAWN            0x01
-#define _WHITE_PAWN            0x02
+#define _EMPTY                     0x00
+#define _BLACK_PAWN                0x01
+#define _WHITE_PAWN                0x02
 
-#define _BLACK_TO_MOVE            0
-#define _WHITE_TO_MOVE            1
+#define _BLACK_TO_MOVE                0
+#define _WHITE_TO_MOVE                1
 
-#define GAME_ONGOING              0
-#define GAME_OVER_BLACK_WINS      1
-#define GAME_OVER_WHITE_WINS      2
-#define GAME_OVER_DRAW            3
+#define GAME_ONGOING                  0
+#define GAME_OVER_BLACK_WINS          1
+#define GAME_OVER_WHITE_WINS          2
+#define GAME_OVER_DRAW                3
 
-#define _GAMESTATE_BYTE_SIZE     17                                 /* Number of bytes needed to store a GameState structure. */
-#define _MOVE_BYTE_SIZE           2                                 /* Number of bytes needed to store a Move structure. */
-#define _MAX_NUM_TARGETS         32                                 /* A (generous) upper bound on how many distinct destinations (not distinct moves)
+#define _GAMESTATE_BYTE_SIZE         17                             /* Number of bytes needed to store a GameState structure. */
+#define _MOVE_BYTE_SIZE               2                             /* Number of bytes needed to store a Move structure. */
+#define _MAX_NUM_TARGETS             32                             /* A (generous) upper bound on how many distinct destinations (not distinct moves)
                                                                        may be available to a player from a single index. */
-#define _MAX_MOVES              128                                 /* A (generous) upper bound on how many moves are available to a team in a single turn. */
+#define _MAX_MOVES                  128                             /* A (generous) upper bound on how many moves are available to a team in a single turn. */
+
+#define _REPETITION_STATE_BYTE_SIZE  17                             /* Bytes needed for repetition-detection encoding. */
+#define _MAX_STATE_REPETITION         3                             /* According to ICGA rules, the 3rd occurrence of a game state forces a draw. */
 
 /**************************************************************************************************
  Typedefs  */
@@ -40,7 +43,7 @@ typedef struct GameStateType                                        //  TOTAL: 1
     unsigned char board[_NONE];                                     //  Array of characters.
   } GameState;
 
-typedef struct MoveType                                             //  TOTAL: 3 bytes.
+typedef struct MoveType                                             //  TOTAL: 2 bytes.
   {
     unsigned char from;                                             //  Index in [0, 64).
     unsigned char to;                                               //  Index in [0, 64).
@@ -52,7 +55,7 @@ typedef struct MoveType                                             //  TOTAL: 3
 void copyGameState(GameState*, GameState*);
 
 void makeMove(Move*, GameState*);
-void makeNullMove(GameState*);
+//void makeNullMove(GameState*);
 char nowToMove(GameState*);
 char nextToMove(GameState*);
 unsigned int getMoves(GameState*, Move*);
@@ -136,12 +139,13 @@ void makeMove(Move* move, GameState* gs)
     return;
   }
 
-/* Does not apply to real chess, but this is convenient for tree-search. */
+/*
 void makeNullMove(GameState* gs)
   {
     gs->blackToMove = !gs->blackToMove;                             //  Flip flag.
     return;
   }
+*/
 
 /* Return a character indicating who is to move now. */
 char nowToMove(GameState* gs)
@@ -199,6 +203,9 @@ unsigned int getMovesIndex(unsigned char index, GameState* gs, Move* buffer)
     unsigned int i;
     unsigned char mileage;
     bool blocked;
+
+    if(index >= _NONE)
+      return 0;
 
     if(!isEmpty(index, gs))
       {
@@ -393,6 +400,12 @@ unsigned int getMovesIndex(unsigned char index, GameState* gs, Move* buffer)
 /* Is the given move a capture on the given GameState? */
 bool isCapture(Move* move, GameState* gs)
   {
+    if(move->from == _PASS && move->to == _PASS)
+      return false;
+
+    if(move->to >= _NONE)
+      return false;
+
     return !isEmpty(move->to, gs);
   }
 
@@ -579,21 +592,37 @@ unsigned char isWin(GameState* gs)
     unsigned char wIndex = 0;
     unsigned char bBlock;
     unsigned char wBlock;
+    unsigned char bTotal;
+    unsigned char wTotal;
 
-    while(bIndex < _NONE && !isBlack(bIndex, gs))                   //  Find first Black piece.
+    bTotal = totalBlack(gs);
+    wTotal = totalWhite(gs);
+
+    if(bTotal == 0 && wTotal == 0)
+      return GAME_OVER_DRAW;                                        //  Defensive: malformed/unreachable legal state.
+
+    if(bTotal == 0)
+      return GAME_OVER_WHITE_WINS;                                  //  Defensive: Black has no pieces.
+
+    if(wTotal == 0)
+      return GAME_OVER_BLACK_WINS;                                  //  Defensive: White has no pieces.
+
+    while(bIndex < _NONE && !isBlack(bIndex, gs))                   //  Find first black piece.
       bIndex++;
 
-    while(wIndex < _NONE && !isWhite(wIndex, gs))                   //  Find first White piece.
+    while(wIndex < _NONE && !isWhite(wIndex, gs))                   //  Find first white piece.
       wIndex++;
 
     bBlock = bfs(bIndex, gs);                                       //  Are all black pieces connected?
     wBlock = bfs(wIndex, gs);                                       //  Are all white pieces connected?
 
-    if(bBlock == totalBlack(gs) && wBlock < totalWhite(gs))
+    if(bBlock == bTotal && wBlock < wTotal)
       return GAME_OVER_BLACK_WINS;
-    if(wBlock == totalWhite(gs) && bBlock < totalBlack(gs))
+
+    if(wBlock == wTotal && bBlock < bTotal)
       return GAME_OVER_WHITE_WINS;
-    if(wBlock == totalWhite(gs) && bBlock == totalBlack(gs))        //  Simultaneous connection is a draw.
+
+    if(wBlock == wTotal && bBlock == bTotal)
       return GAME_OVER_DRAW;
 
     return GAME_ONGOING;

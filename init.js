@@ -6,6 +6,7 @@ var gameStateOffset;                                                //  Address 
 var gameStateBuffer;                                                //  Byte buffer
 var gameOutputOffset;                                               //  Address of read/write memory in gameEngine.
 var gameOutputBuffer;                                               //  Byte buffer
+
 const _GAMESTATE_BYTE_SIZE = 17;                                    //  Size (see C code).
 const _MOVE_BYTE_SIZE = 2;                                          //  Size (see C code).
 const _MOVEBUFFER_BYTE_SIZE = 32;                                   //  Size (see C code).
@@ -14,12 +15,21 @@ const _ZHASH_TABLE_SIZE = 129;                                      //  Size (se
 const _HASH_VALUE_BYTE_SIZE = 8;                                    //  Size of long long.
 const _TRANSPO_TABLE_SIZE = 524288;                                 //  Size (see C code).
 const _TRANSPO_RECORD_BYTE_SIZE = 17;                               //  Size (see C code).
-const _PARAMETER_ARRAY_SIZE = 16;                                   //  Size (see C++ code).
-const _TREE_SEARCH_ARRAY_SIZE = 65536;                              //  Size (see C++ code).
+const _PARAMETER_ARRAY_SIZE = 12;                                   //  Size (see C++ code).
+const _NEGAMAX_NODE_STACK_CAPACITY = 32;                            //  Size (see C++ code).
+const _NEGAMAX_MOVE_ARENA_CAPACITY = 4096;                          //  Size (see C++ code).
 const _NEGAMAX_NODE_BYTE_SIZE = 69;                                 //  Size (see C++ code).
 const _NEGAMAX_MOVE_BYTE_SIZE = 3;                                  //  Size (see C++ code).
 const _KILLER_MOVE_PER_PLY = 2;                                     //  Size (see C++ code).
 const _KILLER_MOVE_MAX_DEPTH = 64;                                  //  Size (see C++ code).
+const _STATS_BUFFER_SIZE = 16;                                      //  Size (see C++ code).
+const _REPETITION_HISTORY_CAPACITY = 1024;                          //  (See C++ code.)
+const _REPETITION_HASH_BYTE_SIZE = 16;                              //  (See C++ code.)
+const _REPETITION_PATH_CAPACITY = _NEGAMAX_NODE_STACK_CAPACITY;
+const _REPETITION_PATH_PREFIX_CAPACITY = 1;                         //  (See C++ code.)
+const _REPETITION_PATH_HEADER_SIZE = 1;                             //  (See C++ code.)
+const _REPETITION_STATE_BYTE_SIZE = 17;                             //  (See C++ code.)
+const _MAX_STATE_REPETITION = 3;                                    //  (See C code.)
 
 var gropius = new Player();                                         //  Create the A.I. agent.
 var variantSetup = 'loa';                                           //  IMPLEMENTATION-SPECIFIC:

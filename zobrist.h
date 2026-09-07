@@ -1,15 +1,7 @@
 #ifndef __ZOBRIST_H
 #define __ZOBRIST_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
 #define ZHASH_TABLE_SIZE    129
-
-#define _BLACK_PAWN        0x01
-#define _WHITE_PAWN        0x02
 
 #define B_A1                  0
 #define B_B1                  1
@@ -153,9 +145,6 @@
 
 /**************************************************************************************************
  Globals  */
-                                                                    //  1,032 bytes.
-unsigned char zobristHashBuffer[ZHASH_TABLE_SIZE * 8];              //  Global array containing the serialized Zobrist-hasher values (unsigned long longs).
-                                                                    //  "Keys" are simply unisnged int values #defined above.
 
 /* Because it indexes into "zobristHashBuffer", the hash function is defined in negamax.cpp. */
 

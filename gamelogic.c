@@ -2,7 +2,7 @@
 
 Game logic module for the human player.
 
-sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src c-wasm emcc -Os -s STANDALONE_WASM -s EXPORTED_FUNCTIONS="['_getCurrentState','_getMovesBuffer','_sideToMove_client','_isBlack_client','_isWhite_client','_isEmpty_client','_hasAnyMoves_client','_getMovesIndex_client','_makeMove_client','_isTerminal_client','_isWin_client','_draw']" -Wl,--no-entry "gamelogic.c" -o "gamelogic.wasm"
+sudo docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) --mount type=bind,source=$(pwd),target=/home/src c-wasm emcc -Os -s STANDALONE_WASM -s INITIAL_HEAP=1048576 -s EXPORTED_FUNCTIONS="['_getCurrentState','_getMovesBuffer','_sideToMove_client','_isBlack_client','_isWhite_client','_isEmpty_client','_hasAnyMoves_client','_getMovesIndex_client','_makeMove_client','_isTerminal_client','_isWin_client','_draw']" -Wl,--no-entry "gamelogic.c" -o "gamelogic.wasm"
 
 */
 
@@ -227,7 +227,14 @@ unsigned int getMovesIndex_client(unsigned char index)
     unsigned int ctr;
     unsigned char indices[_MAX_NUM_TARGETS];
 
+    if(index >= _NONE)
+      return 0;
+
     deserialize(&gs);                                               //  Recover GameState from buffer.
+
+    if((gs.blackToMove && !isBlack(index, &gs)) || (!gs.blackToMove && !isWhite(index, &gs)))
+      return 0;
+
     len = getMovesIndex(index, &gs, moves);
 
     ctr = 0;
@@ -251,15 +258,18 @@ unsigned int getMovesIndex_client(unsigned char index)
 void makeMove_client(unsigned char from, unsigned char to)
   {
     GameState gs;
-    Move moves[_NONE];                                              //  Generous assumption that every square is reachable.
+    Move moves[_MAX_MOVES];                                         //  Generous assumption that every square is reachable.
     Move move;
     unsigned int len, i;
 
     deserialize(&gs);                                               //  Recover GameState from buffer.
-    len = getMovesIndex(from, &gs, moves);                          //  Make sure that this move is legal.
+
+    len = getMoves(&gs, moves);                                     //  Make sure that this move is legal.
+
     i = 0;                                                          //  Otherwise, ignore it. Cheaters lose their turns!
     while(i < len && !(moves[i].from == from && moves[i].to == to))
       i++;
+
     if(i < len)
       {
         move.from = from;
