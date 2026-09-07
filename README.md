@@ -28,7 +28,7 @@ Unlike the in-game hasher, this one is *not* randomly generated for each session
 
 This executable (not a WebAssembly module) lives on the server back-end. Compile using GCC. Call it from the PHP lookup script.
 ```
-g++ -Wall hash.cpp -lm -o hash
+g++ -std=c++11 -Wall hash.cpp -lm -o hash
 ```
 
 For example:
