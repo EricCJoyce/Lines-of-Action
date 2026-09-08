@@ -704,17 +704,28 @@ function toggleFullscreen(b)
 function resetCameraPositionAngle(a)
   {
     angle = a;
+    const rad = a * Math.PI / 180.0;
 
-    if(gropius.team == 'White')
+    if(horizontalView)
       {
-        camera.position.z = Math.cos(-a * (Math.PI / 180)) * CAMERA_Z;
-        camera.position.y = CAMERA_Y + Math.sin(-a * (Math.PI / 180)) * CAMERA_Z;
-        camera.rotation.x = a * (Math.PI / 180);
+        camera.position.x = CAMERA_Y + Math.sin(rad) * CAMERA_Z;
+        camera.position.y = 0.0;
+        camera.position.z = Math.cos(-rad) * CAMERA_Z;
+
+        camera.rotation.x = 0.0;
+        camera.rotation.y = rad;
+        camera.rotation.z = Math.PI * 0.5;
       }
     else
       {
-        camera.position.z = Math.cos(-a * (Math.PI / 180)) * CAMERA_Z;
-        camera.position.y = CAMERA_Y + Math.sin(a * (Math.PI / 180)) * CAMERA_Z;
-        camera.rotation.x = -a * (Math.PI / 180);
+        camera.position.x = 0.0;
+        camera.position.y = CAMERA_Y + Math.sin(-rad) * CAMERA_Z;
+        camera.position.z = Math.cos(-rad) * CAMERA_Z;
+
+        camera.rotation.x = rad;
+        camera.rotation.y = 0.0;
+        camera.rotation.z = 0.0;
       }
+
+    return;
   }

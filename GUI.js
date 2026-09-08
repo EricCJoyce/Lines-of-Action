@@ -21,6 +21,7 @@ var thoughtStaged = false;                                          //  Whether 
 var countStaged = false;                                            //  Whether or not the Node Counter SHOULD be visible
 
 var angle = 14;                                                     //  Current camera angle (14 looks nice, let's start with that)
+var horizontalView = false;                                         //  IMPLEMENTATION-SPECIFIC.
 var fullscreenAvailable = THREEx.FullScreen.available();            //  Whether fullscreen is available on this device
 var fullscreenActive = false;                                       //  Whether fullscreen is currently active
 var showParticles = true;                                           //  Toggle the particle effect
@@ -273,6 +274,14 @@ function updateAngle()
     resetCameraPositionAngle(x);
   }
 
+//  Toggle vertical/horizontal view.
+function updateHorizontalView()
+  {
+    horizontalView = !horizontalView;
+    resetCameraPositionAngle(angle);                                //  Force redraw.
+    return;
+  }
+
 //  Toggle fullscreen
 function updateFullscreenToggle()
   {
@@ -310,15 +319,7 @@ function updateAIPlaysWhite()
             gropius.team = 'Black';
             MasterControl = false;
             HumansTurn = false;
-
-            directionalLight1.position.set(-1, 1, 1).normalize();
-            directionalLight2.position.set(-1, -1, -1).normalize();
-
-            camera.position.set(CAMERA_X, CAMERA_Y, -CAMERA_Z);
-            camera.rotation.set(0, 0, Math.PI);
           }
-
-        resetCameraPositionAngle(angle);                            //  Force redraw
 
         pullGUIComponents();                                        //  Cue the A.I. to make the first move
                                                                     //  It now becomes the A.I.'s turn!
