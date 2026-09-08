@@ -81,8 +81,6 @@ static_assert(_NEGAMAX_MOVE_ARENA_CAPACITY >= (_MAX_PLY + 1) * _MAX_MOVES, "Nega
 //                                                                       (For instance, if this node DESCENDS from a null-move.) */
 #define NN_FLAG_PATH_DEPENDENT_RESULT         0x02                  /* Indicates that this node's value was reached through a repetition path,
                                                                        so its result must NOT be stored in the transposition table. */
-#define NN_FLAG_SKIP_TT_STORE                 0x04                  /* Indicates that this node finished before obtaining a valid TT hash/index,
-                                                                       so its result must NOT be stored in the transposition table. */
                                                                     /* Convenience macros. */
 #define NN_SET_FLAG(node, f)                 ((node)->flags |=  (f))
 #define NN_CLEAR_FLAG(node, f)               ((node)->flags &= ~(f))
@@ -886,6 +884,10 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
                                                                     //               to Negamax's repetition-encoding answer buffer.
     saveRepetitionState(gsIndex);                                   //  Save the canonical repetition-detection encoding under gsIndex.
 
+    //////////////////////////////////////////////////////////////////  Compute the hash for this node.
+    node->zhash = hash(gamestateByteArray);                         //  Zobrist-hash the game state byte array.
+    node->hIndex = hashIndex(node->zhash);                          //  Index modulo size of transposition table.
+
     //////////////////////////////////////////////////////////////////  Terminal test.
                                                                     //  "node"s "gs" is already in the "queryGameStateBuffer".
                                                                     //  And "queryGameStateBuffer" is already in Evaluation Module's "inputBuffer"
@@ -893,7 +895,6 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
     if(b_isTerminal)                                                //  - Terminal-state check.
       {
         node->value = evaluate();                                   //  This imported function handles testing the AI's side.
-        NN_SET_FLAG(node, NN_FLAG_SKIP_TT_STORE);                   //  Terminal result was obtained before this node was hashed.
         node->phase = _PHASE_FINISH_NODE;                           //  Mark for the finishing phase.
         incrementNodeCtr();                                         //  Increase node-evaluation counter by 1.
         saveNode(node, gsIndex);                                    //  Save the updated node.
@@ -914,10 +915,6 @@ void enterNode_step(unsigned int gsIndex, NegamaxNode* node)
         saveNode(node, gsIndex);                                    //  Save the node.
         return;                                                     //  Done here.
       }
-
-    //////////////////////////////////////////////////////////////////  Compute the hash for this node.
-    node->zhash = hash(gamestateByteArray);                         //  Zobrist-hash the game state byte array.
-    node->hIndex = hashIndex(node->zhash);                          //  Index modulo size of transposition table.
 
     //////////////////////////////////////////////////////////////////  Transposition-table probe.
     transpoProbe(gsIndex, node);                                    //  Check the transpo table.
@@ -1349,7 +1346,7 @@ void finishNode_step(unsigned int gsIndex, NegamaxNode* node)
     unsigned char ttType;
     unsigned int i;
 
-    if(!NN_HAS_FLAG(node, NN_FLAG_PATH_DEPENDENT_RESULT) && !NN_HAS_FLAG(node, NN_FLAG_SKIP_TT_STORE))
+    if(!NN_HAS_FLAG(node, NN_FLAG_PATH_DEPENDENT_RESULT))
       {
         v = node->value;
         a0 = node->originalAlpha;
