@@ -62,7 +62,7 @@ static_assert(_NEGAMAX_MOVE_ARENA_CAPACITY >= (_MAX_PLY + 1) * _MAX_MOVES, "Nega
 
 #define CTRL_STOP_REQUESTED                   0x01                  /* Set this byte in commandFlags to request that the present search stop. */
 #define CTRL_HARD_ABORT                       0x02                  /* Set this byte in commandFlags to request that the present search abort. */
-#define CTRL_STOP_TIME                        0x04                  /* Set this byte in commandFlags to indicate that search is timed. */
+#define CTRL_STOP_TIME                        0x04                  /* Set this byte in commandFlags to indicate that search's time budget expired. */
 
 #define _PHASE_ENTER_NODE                        0                  /* Go to enterNode_step()  when entering negamax(). */
 #define _PHASE_GEN_AND_ORDER                     1                  /* Go to expansion_step()  when entering negamax(). */
